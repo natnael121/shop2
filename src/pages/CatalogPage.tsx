@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Product, Shop } from '../types';
+import { BottomNav } from '../components/BottomNav';
+import { CartModal } from '../components/CartModal';
 import { 
   ShoppingCart, 
   Search, 
@@ -16,6 +18,14 @@ import {
   Share2,
   Eye
 } from 'lucide-react';
+
+interface CartItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  total: number;
+}
 
 interface CatalogPageProps {}
 
@@ -34,6 +44,13 @@ export default function CatalogPage({}: CatalogPageProps) {
   const [sortBy, setSortBy] = useState<'name' | 'price-low' | 'price-high' | 'newest'>('newest');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  
+  // Cart and navigation state
+  const [activeTab, setActiveTab] = useState('home');
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [showCart, setShowCart] = useState(false);
+  const [language, setLanguage] = useState<'en' | 'am'>('en');
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   useEffect(() => {
     if (shopName) {
@@ -135,10 +152,73 @@ export default function CatalogPage({}: CatalogPageProps) {
     setSelectedProduct(product);
   };
 
-  const handleAddToCart = (product: Product) => {
-    // This would integrate with a cart system
-    alert(`Added ${product.name} to cart!`);
+  const handleAddToCart = (product: Product, quantity: number = 1) => {
+    const existingItem = cartItems.find(item => item.id === product.id);
+    
+    if (existingItem) {
+      setCartItems(cartItems.map(item =>
+        item.id === product.id
+          ? { ...item, quantity: item.quantity + quantity, total: (item.quantity + quantity) * item.price }
+          : item
+      ));
+    } else {
+      const newItem: CartItem = {
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        quantity,
+        total: product.price * quantity
+      };
+      setCartItems([...cartItems, newItem]);
+    }
   };
+
+  const handleUpdateCartQuantity = (itemId: string, quantity: number) => {
+    if (quantity <= 0) {
+      handleRemoveFromCart(itemId);
+      return;
+    }
+    
+    setCartItems(cartItems.map(item =>
+      item.id === itemId
+        ? { ...item, quantity, total: quantity * item.price }
+        : item
+    ));
+  };
+
+  const handleRemoveFromCart = (itemId: string) => {
+    setCartItems(cartItems.filter(item => item.id !== itemId));
+  };
+
+  const handlePlaceOrder = () => {
+    // This would integrate with order placement system
+    alert(`Order placed with ${cartItems.length} items!`);
+    setCartItems([]);
+    setShowCart(false);
+  };
+
+  const handleWaiterCall = () => {
+    alert('Waiter has been called!');
+  };
+
+  const handleBillClick = () => {
+    alert('Bill requested!');
+  };
+
+  const handleSettingsClick = () => {
+    setLanguage(language === 'en' ? 'am' : 'en');
+  };
+
+  const handleAboutClick = () => {
+    alert(`About ${shop?.name || 'this shop'}`);
+  };
+
+  const handleNotificationToggle = () => {
+    setNotificationsEnabled(!notificationsEnabled);
+  };
+
+  const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const totalAmount = cartItems.reduce((sum, item) => sum + item.total, 0);
 
   const handleShare = async (product: Product) => {
     if (navigator.share) {
@@ -189,7 +269,7 @@ export default function CatalogPage({}: CatalogPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-20">
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -303,6 +383,34 @@ export default function CatalogPage({}: CatalogPageProps) {
           onShare={handleShare}
         />
       )}
+
+      {/* Bottom Navigation */}
+      <BottomNav
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onWaiterCall={handleWaiterCall}
+        onBillClick={handleBillClick}
+        onCartClick={() => setShowCart(true)}
+        onSettingsClick={handleSettingsClick}
+        onAboutClick={handleAboutClick}
+        cartItemCount={cartItemCount}
+        language={language}
+        notificationsEnabled={notificationsEnabled}
+        onNotificationToggle={handleNotificationToggle}
+      />
+
+      {/* Cart Modal */}
+      {showCart && (
+        <CartModal
+          items={cartItems}
+          totalAmount={totalAmount}
+          tableNumber="1" // You might want to make this dynamic
+          onClose={() => setShowCart(false)}
+          onUpdateQuantity={handleUpdateCartQuantity}
+          onRemoveItem={handleRemoveFromCart}
+          onPlaceOrder={handlePlaceOrder}
+        />
+      )}
     </div>
   );
 }
@@ -312,7 +420,7 @@ interface ProductCardProps {
   product: Product;
   viewMode: 'grid' | 'list';
   onProductClick: (product: Product) => void;
-  onAddToCart: (product: Product) => void;
+  onAddToCart: (product: Product, quantity?: number) => void;
   onShare: (product: Product) => void;
 }
 
@@ -439,7 +547,7 @@ function ProductCard({ product, viewMode, onProductClick, onAddToCart, onShare }
 interface ProductDetailModalProps {
   product: Product;
   onClose: () => void;
-  onAddToCart: (product: Product) => void;
+  onAddToCart: (product: Product, quantity?: number) => void;
   onShare: (product: Product) => void;
 }
 
@@ -547,7 +655,7 @@ function ProductDetailModal({ product, onClose, onAddToCart, onShare }: ProductD
 
               <div className="flex space-x-4">
                 <button
-                  onClick={() => onAddToCart(product)}
+                  onClick={() => onAddToCart(product, quantity)}
                   className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center space-x-2"
                 >
                   <ShoppingCart className="w-5 h-5" />

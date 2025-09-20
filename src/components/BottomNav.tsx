@@ -1,6 +1,28 @@
 import React from 'react';
 import { Home, ChefHat, Receipt, ShoppingCart, Settings, FileText, Info, Bell, BellOff } from 'lucide-react';
-import { useTranslation } from '../utils/translations';
+// Simple translation function for this component
+const translations = {
+  en: {
+    home: 'Home',
+    about: 'About',
+    waiter: 'Waiter',
+    cart: 'Cart',
+    bill: 'Bill',
+    settings: 'Settings'
+  },
+  am: {
+    home: 'ቤት',
+    about: 'ስለ',
+    waiter: 'አገልጋይ',
+    cart: 'ጋሪ',
+    bill: 'ሂሳብ',
+    settings: 'ቅንብሮች'
+  }
+};
+
+const useTranslation = (language: 'en' | 'am') => {
+  return (key: keyof typeof translations.en) => translations[language][key];
+};
 
 interface BottomNavProps {
   activeTab: string;

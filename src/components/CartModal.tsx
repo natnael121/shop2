@@ -1,6 +1,13 @@
 import React from 'react';
 import { X, Plus, Minus, Trash2 } from 'lucide-react';
-import { OrderItem } from '../types';
+// Define OrderItem interface for this component
+interface OrderItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  total: number;
+}
 
 interface CartModalProps {
   items: OrderItem[];
