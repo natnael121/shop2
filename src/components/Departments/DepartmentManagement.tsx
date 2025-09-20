@@ -259,7 +259,6 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
   const [name, setName] = useState(department?.name || '');
   const [telegramChatId, setTelegramChatId] = useState(department?.telegramChatId || '');
   const [adminChatId, setAdminChatId] = useState(department?.adminChatId || '');
-  const [role, setRole] = useState<'kitchen' | 'cashier' | 'admin'>(department?.role || 'kitchen');
   const [role, setRole] = useState<'cashier' | 'delivery' | 'admin' | 'sales'>(department?.role || 'cashier');
   const [order, setOrder] = useState(department?.order || 0);
   const [icon, setIcon] = useState(department?.icon || '');
