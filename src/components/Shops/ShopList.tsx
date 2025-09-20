@@ -114,4 +114,3 @@ export default function ShopList({ shops, onCreateShop, onSelectShop, selectedSh
     </div>
   );
 }
-}
