@@ -6,31 +6,46 @@ import { Order, OrderStatus } from '../types';
 export function useOrders(shopId: string | undefined) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!shopId) {
       setOrders([]);
       setLoading(false);
+      setError(null);
       return;
     }
 
+    setError(null);
     const q = query(
       collection(db, 'orders'),
-      where('shopId', '==', shopId),
-      orderBy('createdAt', 'desc')
+      where('shopId', '==', shopId)
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const ordersData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate(),
-        updatedAt: doc.data().updatedAt?.toDate()
-      })) as Order[];
-      
-      setOrders(ordersData);
-      setLoading(false);
-    });
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
+        const ordersData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: doc.data().createdAt?.toDate(),
+          updatedAt: doc.data().updatedAt?.toDate()
+        })) as Order[];
+        
+        // Sort orders by createdAt in descending order (client-side)
+        ordersData.sort((a, b) => {
+          if (!a.createdAt || !b.createdAt) return 0;
+          return b.createdAt.getTime() - a.createdAt.getTime();
+        });
+        
+        setOrders(ordersData);
+        setLoading(false);
+      },
+      (error) => {
+        console.error('Error fetching orders:', error);
+        setError(error.message);
+        setLoading(false);
+      }
+    );
 
     return unsubscribe;
   }, [shopId]);
@@ -62,6 +77,7 @@ export function useOrders(shopId: string | undefined) {
   return {
     orders,
     loading,
+    error,
     createOrder,
     updateOrderStatus
   };
