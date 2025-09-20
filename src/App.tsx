@@ -11,6 +11,7 @@ import RecentOrders from './components/Dashboard/RecentOrders';
 import ShopList from './components/Shops/ShopList';
 import ProductList from './components/Products/ProductList';
 import DepartmentManagement from './components/Departments/DepartmentManagement';
+import SettingsPanel from './components/Settings/SettingsPanel';
 import { Shop } from './types';
 
 function App() {

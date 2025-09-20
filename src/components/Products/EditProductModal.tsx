@@ -1,33 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Upload, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { imgbbService } from '../../services/imgbb';
+import { Product } from '../../types';
 
-interface CreateProductModalProps {
-  isOpen: boolean;
+interface EditProductModalProps {
+  product: Product;
   onClose: () => void;
-  onSubmit: (productData: any) => Promise<string>;
+  onSubmit: (productId: string, updates: any) => Promise<void>;
 }
 
-export default function CreateProductModal({ isOpen, onClose, onSubmit }: CreateProductModalProps) {
+export default function EditProductModal({ product, onClose, onSubmit }: EditProductModalProps) {
   const [loading, setLoading] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    price: '',
-    stock: '',
-    category: '',
-    subcategory: '',
-    sku: '',
-    lowStockAlert: '5',
-    images: [] as string[]
+    name: product.name,
+    description: product.description,
+    price: product.price.toString(),
+    stock: product.stock.toString(),
+    category: product.category,
+    subcategory: product.subcategory || '',
+    sku: product.sku || '',
+    lowStockAlert: product.lowStockAlert.toString(),
+    images: product.images || [],
+    isActive: product.isActive
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+    const { name, value, type } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
     }));
   };
 
@@ -61,45 +63,31 @@ export default function CreateProductModal({ isOpen, onClose, onSubmit }: Create
       images: prev.images.filter((_, i) => i !== index)
     }));
   };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      await onSubmit({
+      await onSubmit(product.id, {
         ...formData,
         price: parseFloat(formData.price),
         stock: parseInt(formData.stock),
-        lowStockAlert: parseInt(formData.lowStockAlert),
-        isActive: true
+        lowStockAlert: parseInt(formData.lowStockAlert)
       });
-      
-      setFormData({
-        name: '',
-        description: '',
-        price: '',
-        stock: '',
-        category: '',
-        subcategory: '',
-        sku: '',
-        lowStockAlert: '5',
-        images: []
-      });
-      onClose();
     } catch (error) {
-      console.error('Error creating product:', error);
+      console.error('Error updating product:', error);
+      alert('Failed to update product');
     } finally {
       setLoading(false);
     }
   };
 
-  if (!isOpen) return null;
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl max-w-2xl w-full max-h-screen overflow-y-auto p-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-gray-900">Add New Product</h2>
+          <h2 className="text-xl font-semibold text-gray-900">Edit Product</h2>
           <button
             onClick={onClose}
             className="p-2 text-gray-400 hover:text-gray-600 transition-colors duration-200"
@@ -183,7 +171,7 @@ export default function CreateProductModal({ isOpen, onClose, onSubmit }: Create
                   <Upload className="h-8 w-8 text-gray-400" />
                 )}
                 <span className="text-sm text-gray-600">
-                  {uploadingImages ? 'Uploading images...' : 'Click to upload images or drag and drop'}
+                  {uploadingImages ? 'Uploading images...' : 'Click to upload more images or drag and drop'}
                 </span>
                 <span className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB each</span>
               </label>
@@ -211,6 +199,7 @@ export default function CreateProductModal({ isOpen, onClose, onSubmit }: Create
               </div>
             )}
           </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-2">
@@ -294,6 +283,20 @@ export default function CreateProductModal({ isOpen, onClose, onSubmit }: Create
             </div>
           </div>
 
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="isActive"
+              name="isActive"
+              checked={formData.isActive}
+              onChange={handleInputChange}
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <label htmlFor="isActive" className="ml-2 block text-sm text-gray-900">
+              Product is active and visible to customers
+            </label>
+          </div>
+
           <div className="flex justify-end space-x-3 pt-4">
             <button
               type="button"
@@ -307,7 +310,7 @@ export default function CreateProductModal({ isOpen, onClose, onSubmit }: Create
               disabled={loading || uploadingImages}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
             >
-              {loading ? 'Adding...' : uploadingImages ? 'Uploading...' : 'Add Product'}
+              {loading ? 'Updating...' : uploadingImages ? 'Uploading...' : 'Update Product'}
             </button>
           </div>
         </form>

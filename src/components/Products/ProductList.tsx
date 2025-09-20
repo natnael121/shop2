@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Package, Plus, Edit, Trash2, Search, Filter } from 'lucide-react';
+import { Package, Plus, Edit, Trash2, Search, Filter, Image as ImageIcon } from 'lucide-react';
 import { Product } from '../../types';
 import CreateProductModal from './CreateProductModal';
+import EditProductModal from './EditProductModal';
 
 interface ProductListProps {
   products: Product[];
@@ -19,6 +20,7 @@ export default function ProductList({
   loading 
 }: ProductListProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
 
@@ -41,6 +43,19 @@ export default function ProductList({
     }
   };
 
+  const handleEditProduct = (product: Product) => {
+    setEditingProduct(product);
+  };
+
+  const handleUpdateProduct = async (productId: string, updates: any) => {
+    try {
+      await onUpdateProduct(productId, updates);
+      setEditingProduct(null);
+    } catch (error) {
+      console.error('Error updating product:', error);
+      throw error;
+    }
+  };
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -94,11 +109,19 @@ export default function ProductList({
           <div key={product.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="aspect-w-16 aspect-h-9 bg-gray-200">
               {product.images && product.images.length > 0 ? (
-                <img
-                  src={product.images[0]}
-                  alt={product.name}
-                  className="w-full h-48 object-cover"
-                />
+                <div className="relative">
+                  <img
+                    src={product.images[0]}
+                    alt={product.name}
+                    className="w-full h-48 object-cover"
+                  />
+                  {product.images.length > 1 && (
+                    <div className="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded-full flex items-center space-x-1">
+                      <ImageIcon className="w-3 h-3" />
+                      <span>+{product.images.length - 1}</span>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
                   <Package className="h-12 w-12 text-gray-400" />
@@ -111,11 +134,14 @@ export default function ProductList({
                 <h3 className="font-semibold text-gray-900 truncate">{product.name}</h3>
                 <div className="flex space-x-1 ml-2">
                   <button className="p-1 text-gray-400 hover:text-blue-600">
-                    <Edit className="h-4 w-4" />
+                    onClick={() => handleEditProduct(product)}
+                    className="p-1 text-gray-400 hover:text-blue-600 transition-colors duration-200"
+                    title="Edit Product"
                   </button>
                   <button 
                     onClick={() => handleDeleteProduct(product.id)}
-                    className="p-1 text-gray-400 hover:text-red-600"
+                    className="p-1 text-gray-400 hover:text-red-600 transition-colors duration-200"
+                    title="Delete Product"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -130,6 +156,9 @@ export default function ProductList({
                 <div>
                   <span className="text-lg font-bold text-gray-900">${product.price.toFixed(2)}</span>
                   <p className="text-sm text-gray-500">Stock: {product.stock}</p>
+                  {product.sku && (
+                    <p className="text-xs text-gray-400">SKU: {product.sku}</p>
+                  )}
                 </div>
                 <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
                   {product.category}
@@ -167,5 +196,12 @@ export default function ProductList({
         onSubmit={onCreateProduct}
       />
     </div>
+      {editingProduct && (
+        <EditProductModal
+          product={editingProduct}
+          onClose={() => setEditingProduct(null)}
+          onSubmit={handleUpdateProduct}
+        />
+      )}
   );
 }
