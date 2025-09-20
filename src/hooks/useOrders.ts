@@ -1,0 +1,68 @@
+import { useState, useEffect } from 'react';
+import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, orderBy } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { Order, OrderStatus } from '../types';
+
+export function useOrders(shopId: string | undefined) {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!shopId) {
+      setOrders([]);
+      setLoading(false);
+      return;
+    }
+
+    const q = query(
+      collection(db, 'orders'),
+      where('shopId', '==', shopId),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const ordersData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate(),
+        updatedAt: doc.data().updatedAt?.toDate()
+      })) as Order[];
+      
+      setOrders(ordersData);
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, [shopId]);
+
+  const createOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      const docRef = await addDoc(collection(db, 'orders'), {
+        ...orderData,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      return docRef.id;
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
+    try {
+      await updateDoc(doc(db, 'orders', orderId), {
+        status,
+        updatedAt: new Date()
+      });
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  return {
+    orders,
+    loading,
+    createOrder,
+    updateOrderStatus
+  };
+}
