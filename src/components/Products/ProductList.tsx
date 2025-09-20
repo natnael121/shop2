@@ -195,7 +195,7 @@ export default function ProductList({
         onClose={() => setShowCreateModal(false)}
         onSubmit={onCreateProduct}
       />
-    </div>
+
       {editingProduct && (
         <EditProductModal
           product={editingProduct}
@@ -203,5 +203,6 @@ export default function ProductList({
           onSubmit={handleUpdateProduct}
         />
       )}
+    </div>
   );
 }
