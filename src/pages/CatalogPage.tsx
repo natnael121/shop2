@@ -20,7 +20,7 @@ import {
 interface CatalogPageProps {}
 
 export default function CatalogPage({}: CatalogPageProps) {
-  const { shopSlug } = useParams<{ shopSlug: string }>();
+  const { shopName } = useParams<{ shopName: string }>();
   const navigate = useNavigate();
   
   const [shop, setShop] = useState<Shop | null>(null);
@@ -36,10 +36,10 @@ export default function CatalogPage({}: CatalogPageProps) {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   useEffect(() => {
-    if (shopSlug) {
+    if (shopName) {
       loadShopAndProducts();
     }
-  }, [shopSlug]);
+  }, [shopName]);
 
   useEffect(() => {
     filterAndSortProducts();
@@ -50,26 +50,30 @@ export default function CatalogPage({}: CatalogPageProps) {
       setLoading(true);
       setError(null);
 
-      // Find shop by slug
+      // Find shop by name (case-insensitive)
       const shopsQuery = query(
         collection(db, 'shops'),
-        where('slug', '==', shopSlug),
         where('isActive', '==', true)
       );
       
       const shopsSnapshot = await getDocs(shopsQuery);
       
-      if (shopsSnapshot.empty) {
+      // Filter by shop name (case-insensitive)
+      const matchingShops = shopsSnapshot.docs.filter(doc => 
+        doc.data().name.toLowerCase() === shopName?.toLowerCase()
+      );
+      
+      if (matchingShops.length === 0) {
         setError('Shop not found or inactive');
         setLoading(false);
         return;
       }
 
       const shopData = {
-        id: shopsSnapshot.docs[0].id,
-        ...shopsSnapshot.docs[0].data(),
-        createdAt: shopsSnapshot.docs[0].data().createdAt?.toDate(),
-        updatedAt: shopsSnapshot.docs[0].data().updatedAt?.toDate()
+        id: matchingShops[0].id,
+        ...matchingShops[0].data(),
+        createdAt: matchingShops[0].data().createdAt?.toDate(),
+        updatedAt: matchingShops[0].data().updatedAt?.toDate()
       } as Shop;
 
       setShop(shopData);

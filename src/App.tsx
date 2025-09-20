@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { useShops } from './hooks/useShops';
 import { useProducts } from './hooks/useProducts';
 import { useOrders } from './hooks/useOrders';
 import AuthForm from './components/Auth/AuthForm';
+import CatalogPage from './pages/CatalogPage';
 import Sidebar from './components/Layout/Sidebar';
 import Header from './components/Layout/Header';
 import DashboardStats from './components/Dashboard/DashboardStats';
@@ -51,6 +53,42 @@ function App() {
   if (!user) {
     return <AuthForm />;
   }
+
+  return (
+    <Router>
+      <Routes>
+        <Route path="/shop/:shopName" element={<CatalogPage />} />
+        <Route path="/*" element={<DashboardApp />} />
+      </Routes>
+    </Router>
+  );
+}
+
+function DashboardApp() {
+  const { user } = useAuth();
+  const [activeSection, setActiveSection] = useState('dashboard');
+  const [selectedShop, setSelectedShop] = useState<Shop | undefined>();
+
+  const { shops, loading: shopsLoading, createShop } = useShops(user?.uid);
+  const { products, loading: productsLoading, createProduct, updateProduct, deleteProduct } = useProducts(selectedShop?.id);
+  const { orders, loading: ordersLoading, updateOrderStatus } = useOrders(selectedShop?.id);
+
+  // Auto-select first shop if none selected
+  useEffect(() => {
+    if (shops.length > 0 && !selectedShop) {
+      setSelectedShop(shops[0]);
+    }
+  }, [shops, selectedShop]);
+
+  // Calculate dashboard stats
+  const stats = {
+    totalShops: shops.length,
+    totalProducts: products.length,
+    totalOrders: orders.length,
+    totalCustomers: new Set(orders.map(o => o.customerId)).size,
+    revenue: orders.reduce((sum, order) => sum + order.total, 0),
+    lowStockItems: products.filter(p => p.stock <= p.lowStockAlert).length,
+  };
 
   const handleCreateProduct = async (productData: any) => {
     if (!selectedShop) throw new Error('No shop selected');

@@ -12,7 +12,6 @@ export interface Shop {
   name: string;
   description: string;
   logo?: string;
-  slug: string;
   isActive: boolean;
   telegramConfig?: TelegramConfig;
   createdAt: Date;

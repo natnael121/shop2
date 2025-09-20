@@ -199,13 +199,13 @@ export default function SettingsPanel({ selectedShop }: SettingsPanelProps) {
                         <div className="flex items-center space-x-2">
                           <input
                             type="text"
-                            value={`${window.location.origin}/shop/${selectedShop.slug}`}
+                            value={`${window.location.origin}/shop/${encodeURIComponent(selectedShop.name)}`}
                             readOnly
                             className="flex-1 px-2 py-1 text-sm border border-blue-200 rounded bg-white text-blue-700"
                           />
                           <button
                             onClick={() => {
-                              navigator.clipboard.writeText(`${window.location.origin}/shop/${selectedShop.slug}`);
+                              navigator.clipboard.writeText(`${window.location.origin}/shop/${encodeURIComponent(selectedShop.name)}`);
                               alert('Link copied to clipboard!');
                             }}
                             className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors duration-200"
@@ -213,7 +213,7 @@ export default function SettingsPanel({ selectedShop }: SettingsPanelProps) {
                             Copy
                           </button>
                           <a
-                            href={`${window.location.origin}/shop/${selectedShop.slug}`}
+                            href={`${window.location.origin}/shop/${encodeURIComponent(selectedShop.name)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors duration-200"

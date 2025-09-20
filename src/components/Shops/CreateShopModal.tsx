@@ -12,17 +12,13 @@ export default function CreateShopModal({ isOpen, onClose, onSubmit }: CreateSho
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    slug: '',
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value,
-      ...(name === 'name' && {
-        slug: value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
-      })
+      [name]: value
     }));
   };
 
@@ -36,6 +32,7 @@ export default function CreateShopModal({ isOpen, onClose, onSubmit }: CreateSho
         isActive: true
       });
       setFormData({ name: '', description: '', slug: '' });
+      setFormData({ name: '', description: '' });
       onClose();
     } catch (error) {
       console.error('Error creating shop:', error);
@@ -74,25 +71,6 @@ export default function CreateShopModal({ isOpen, onClose, onSubmit }: CreateSho
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Enter shop name"
             />
-          </div>
-
-          <div>
-            <label htmlFor="slug" className="block text-sm font-medium text-gray-700 mb-2">
-              Shop URL Slug
-            </label>
-            <div className="flex items-center">
-              <span className="text-sm text-gray-500 mr-2">shopdomain.com/</span>
-              <input
-                type="text"
-                id="slug"
-                name="slug"
-                required
-                value={formData.slug}
-                onChange={handleInputChange}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="shop-url"
-              />
-            </div>
           </div>
 
           <div>
