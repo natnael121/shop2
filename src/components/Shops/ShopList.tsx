@@ -85,6 +85,7 @@ export default function ShopList({ shops, onCreateShop, onSelectShop, selectedSh
                 </a>
               </div>
             </div>
+          }
           </div>
         ))}
       </div>
@@ -113,4 +114,7 @@ export default function ShopList({ shops, onCreateShop, onSelectShop, selectedSh
       />
     </div>
   );
+}
+        }
+  )
 }
