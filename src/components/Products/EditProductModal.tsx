@@ -255,16 +255,31 @@ export default function EditProductModal({ product, onClose, onSubmit }: EditPro
               <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
                 Category *
               </label>
-              <input
-                type="text"
+              <select
                 id="category"
                 name="category"
-                required
                 value={formData.category}
                 onChange={handleInputChange}
+                required
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="e.g., Electronics"
-              />
+              >
+                <option value="">Select a category</option>
+                <option value="Electronics">Electronics</option>
+                <option value="Clothing">Clothing</option>
+                <option value="Food & Beverages">Food & Beverages</option>
+                <option value="Home & Garden">Home & Garden</option>
+                <option value="Sports & Outdoors">Sports & Outdoors</option>
+                <option value="Books & Media">Books & Media</option>
+                <option value="Health & Beauty">Health & Beauty</option>
+                <option value="Toys & Games">Toys & Games</option>
+                <option value="Automotive">Automotive</option>
+                <option value="Office Supplies">Office Supplies</option>
+                <option value="Pet Supplies">Pet Supplies</option>
+                <option value="Jewelry & Accessories">Jewelry & Accessories</option>
+                <option value="Art & Crafts">Art & Crafts</option>
+                <option value="Music & Instruments">Music & Instruments</option>
+                <option value="Other">Other</option>
+              </select>
             </div>
 
             <div>

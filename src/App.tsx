@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { useShops } from './hooks/useShops';
 import { useProducts } from './hooks/useProducts';
 import { useOrders } from './hooks/useOrders';
 import AuthForm from './components/Auth/AuthForm';
+import CatalogPage from './pages/CatalogPage';
 import Sidebar from './components/Layout/Sidebar';
 import Header from './components/Layout/Header';
 import DashboardStats from './components/Dashboard/DashboardStats';
@@ -15,6 +17,27 @@ import SettingsPanel from './components/Settings/SettingsPanel';
 import { Shop } from './types';
 
 function App() {
+  const { user, loading: authLoading } = useAuth();
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <Router>
+      <Routes>
+        <Route path="/shop/:shopSlug" element={<CatalogPage />} />
+        <Route path="/*" element={<MainApp />} />
+      </Routes>
+    </Router>
+  );
+}
+
+function MainApp() {
   const { user, loading: authLoading } = useAuth();
   const [activeSection, setActiveSection] = useState('dashboard');
   const [selectedShop, setSelectedShop] = useState<Shop | undefined>();
@@ -172,6 +195,7 @@ function App() {
       </div>
     </div>
   );
+}
 }
 
 export default App;
