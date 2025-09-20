@@ -1,28 +1,6 @@
 import React from 'react';
 import { Home, ChefHat, Receipt, ShoppingCart, Settings, FileText, Info, Bell, BellOff } from 'lucide-react';
-// Simple translation function for this component
-const translations = {
-  en: {
-    home: 'Home',
-    about: 'About',
-    waiter: 'Waiter',
-    cart: 'Cart',
-    bill: 'Bill',
-    settings: 'Settings'
-  },
-  am: {
-    home: 'ቤት',
-    about: 'ስለ',
-    waiter: 'አገልጋይ',
-    cart: 'ጋሪ',
-    bill: 'ሂሳብ',
-    settings: 'ቅንብሮች'
-  }
-};
-
-const useTranslation = (language: 'en' | 'am') => {
-  return (key: keyof typeof translations.en) => translations[language][key];
-};
+import { useTranslation } from '../utils/translations';
 
 interface BottomNavProps {
   activeTab: string;
@@ -120,7 +98,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               <BellOff className="w-6 h-6 mb-1" />
             )}
             <span className="text-xs font-medium">
-              {language === 'en' ? 'Alerts' : 'ማሳወቂያ'}
+              {t('alerts')}
             </span>
           </button>
         )}

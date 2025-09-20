@@ -72,6 +72,19 @@ export interface CartItem {
   quantity: number;
   total: number;
 }
+
+export interface TableBill {
+  id: string;
+  tableNumber: string;
+  items: OrderItem[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  status: 'active' | 'paid' | 'cancelled';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
 
 export interface Customer {

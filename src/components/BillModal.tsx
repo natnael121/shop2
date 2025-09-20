@@ -1,8 +1,7 @@
 import React from 'react';
 import { X, Receipt, CreditCard } from 'lucide-react';
-import { TableBill } from '../types';
+import { TableBill, OrderItem } from '../types';
 import { telegramService } from '../services/telegram';
-import html2canvas from 'html2canvas';
 
 interface BillModalProps {
   tableBill: TableBill | null;
@@ -12,8 +11,6 @@ interface BillModalProps {
   onClose: () => void;
   onPaymentOrder: () => void;
 }
-
-
 
 export const BillModal: React.FC<BillModalProps> = ({
   tableBill,
@@ -29,6 +26,9 @@ export const BillModal: React.FC<BillModalProps> = ({
     if (!tableBill || !billRef.current) return;
 
     try {
+      // Import html2canvas dynamically
+      const html2canvas = (await import('html2canvas')).default;
+      
       // Capture the bill as an image
       const canvas = await html2canvas(billRef.current, {
         backgroundColor: '#ffffff',
@@ -36,15 +36,19 @@ export const BillModal: React.FC<BillModalProps> = ({
         logging: false,
       });
       
-      // Convert to blob
+      // Convert to blob and upload to ImgBB
       canvas.toBlob(async (blob) => {
         if (!blob) return;
         
         const file = new File([blob], `bill-table-${tableNumber}.png`, { type: 'image/png' });
         
+        // Upload to ImgBB first
+        const { imgbbService } = await import('../services/imgbb');
+        const imageUrl = await imgbbService.uploadImage(file, `bill_table_${tableNumber}_${Date.now()}`);
+        
         // Send to Telegram
         await telegramService.sendBillPhoto(
-          URL.createObjectURL(blob),
+          imageUrl,
           tableNumber,
           tableBill.total,
           userId
@@ -80,7 +84,7 @@ export const BillModal: React.FC<BillModalProps> = ({
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
       <div className="bg-gray-900 rounded-2xl max-w-sm w-full text-center shadow-xl">
         <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-lg font-bold text-gray-900">Current Bill</h2>
+          <h2 className="text-lg font-bold text-white">Current Bill</h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-800 rounded-full transition-colors"
@@ -106,7 +110,7 @@ export const BillModal: React.FC<BillModalProps> = ({
             {tableBill.items.map((item, index) => (
               <div key={`${item.id}-${index}`} className="flex justify-between items-center py-2 border-b border-gray-800">
                 <div className="flex-1">
-                  <p className="font-medium text-white">{item.name}</p>
+                  <p className="font-medium text-white">{item.productName}</p>
                   <p className="text-sm text-gray-400">
                     ${item.price.toFixed(2)} × {item.quantity}
                   </p>
@@ -140,6 +144,12 @@ export const BillModal: React.FC<BillModalProps> = ({
             >
               <CreditCard className="w-5 h-5" />
               Pay Now
+            </button>
+            <button
+              onClick={sendBillToTelegram}
+              className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+            >
+              Send Bill to Telegram
             </button>
             <p className="text-xs text-gray-400 text-center">
               You'll be able to select your payment method in the next step

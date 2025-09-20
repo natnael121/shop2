@@ -2,9 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { Product, Shop } from '../types';
+import { Product, Shop, TableBill, OrderItem } from '../types';
 import { BottomNav } from '../components/BottomNav';
 import { CartModal } from '../components/CartModal';
+import { BillModal } from '../components/BillModal';
+import { PaymentModal } from '../components/PaymentModal';
+import { AboutModal } from '../components/AboutModal';
+import { TableHeader } from '../components/TableHeader';
 import { 
   ShoppingCart, 
   Search, 
@@ -49,8 +53,41 @@ export default function CatalogPage({}: CatalogPageProps) {
   const [activeTab, setActiveTab] = useState('home');
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [showCart, setShowCart] = useState(false);
+  const [showBill, setShowBill] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
   const [language, setLanguage] = useState<'en' | 'am'>('en');
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  
+  // Table and bill state
+  const [tableNumber] = useState('1'); // This could be dynamic based on URL params
+  const [tableBill, setTableBill] = useState<TableBill | null>(null);
+
+  // Business info for about modal
+  const businessInfo = {
+    name: shop?.name || 'Restaurant',
+    description: shop?.description || 'Welcome to our restaurant! We serve delicious food with excellent service.',
+    address: '123 Main Street, City, Country',
+    phone: '+1-234-567-8900',
+    email: 'info@restaurant.com',
+    website: 'https://restaurant.com',
+    socialMedia: {
+      facebook: 'https://facebook.com/restaurant',
+      instagram: 'https://instagram.com/restaurant',
+      whatsapp: '+1234567890'
+    },
+    operatingHours: {
+      monday: '9:00 AM - 10:00 PM',
+      tuesday: '9:00 AM - 10:00 PM',
+      wednesday: '9:00 AM - 10:00 PM',
+      thursday: '9:00 AM - 10:00 PM',
+      friday: '9:00 AM - 11:00 PM',
+      saturday: '10:00 AM - 11:00 PM',
+      sunday: '10:00 AM - 10:00 PM'
+    },
+    features: ['Free WiFi', 'Fresh Food', 'Fast Service', 'Top Rated'],
+    specialMessage: 'Thank you for choosing us! We appreciate your business.'
+  };
 
   useEffect(() => {
     if (shopName) {
@@ -61,6 +98,37 @@ export default function CatalogPage({}: CatalogPageProps) {
   useEffect(() => {
     filterAndSortProducts();
   }, [products, searchTerm, selectedCategory, sortBy]);
+
+  useEffect(() => {
+    // Update table bill when cart items change
+    if (cartItems.length > 0) {
+      const subtotal = cartItems.reduce((sum, item) => sum + item.total, 0);
+      const tax = subtotal * 0.1; // 10% tax
+      const total = subtotal + tax;
+      
+      const billItems: OrderItem[] = cartItems.map(item => ({
+        productId: item.id,
+        productName: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        total: item.total
+      }));
+      
+      setTableBill({
+        id: `bill-${tableNumber}-${Date.now()}`,
+        tableNumber,
+        items: billItems,
+        subtotal,
+        tax,
+        total,
+        status: 'active',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+    } else {
+      setTableBill(null);
+    }
+  }, [cartItems, tableNumber]);
 
   const loadShopAndProducts = async () => {
     try {
@@ -198,11 +266,21 @@ export default function CatalogPage({}: CatalogPageProps) {
   };
 
   const handleWaiterCall = () => {
-    alert('Waiter has been called!');
+    // Send waiter call to Telegram
+    const { telegramService } = require('../services/telegram');
+    telegramService.sendMessage({
+      chat_id: '-1002701066037',
+      text: `🔔 <b>Waiter Call</b>\n\nTable ${tableNumber} is requesting assistance.\n\n⏰ ${new Date().toLocaleString()}`,
+      parse_mode: 'HTML'
+    }).then(() => {
+      alert('Waiter has been called!');
+    }).catch(() => {
+      alert('Failed to call waiter. Please try again.');
+    });
   };
 
   const handleBillClick = () => {
-    alert('Bill requested!');
+    setShowBill(true);
   };
 
   const handleSettingsClick = () => {
@@ -210,11 +288,24 @@ export default function CatalogPage({}: CatalogPageProps) {
   };
 
   const handleAboutClick = () => {
-    alert(`About ${shop?.name || 'this shop'}`);
+    setShowAbout(true);
   };
 
   const handleNotificationToggle = () => {
     setNotificationsEnabled(!notificationsEnabled);
+  };
+
+  const handlePaymentOrder = () => {
+    setShowBill(false);
+    setShowPayment(true);
+  };
+
+  const handlePaymentSubmit = async (paymentData: { screenshotUrl: string; method: string }) => {
+    // Payment has been submitted and sent to Telegram
+    // Clear cart and show success message
+    setCartItems([]);
+    setTableBill(null);
+    alert('Payment submitted successfully! Your order will be processed shortly.');
   };
 
   const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -270,40 +361,25 @@ export default function CatalogPage({}: CatalogPageProps) {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="py-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => navigate('/')}
-                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors duration-200"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </button>
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900">{shop.name}</h1>
-                  <p className="text-gray-600">{shop.description}</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors duration-200"
-                >
-                  {viewMode === 'grid' ? <List className="w-5 h-5" /> : <Grid className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Table Header */}
+      <TableHeader
+        tableNumber={tableNumber}
+        language={language}
+        orderType="dine-in"
+        businessName={shop.name}
+        businessLogo={shop.logo}
+      />
 
       {/* Filters */}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex flex-col sm:flex-row gap-4 items-center">
+            <button
+              onClick={() => navigate('/')}
+              className="p-2 text-gray-400 hover:text-gray-600 transition-colors duration-200 sm:order-first"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
@@ -337,6 +413,13 @@ export default function CatalogPage({}: CatalogPageProps) {
                 <option value="price-low">Price: Low to High</option>
                 <option value="price-high">Price: High to Low</option>
               </select>
+              
+              <button
+                onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+                className="p-2 text-gray-400 hover:text-gray-600 transition-colors duration-200 border border-gray-300 rounded-lg"
+              >
+                {viewMode === 'grid' ? <List className="w-5 h-5" /> : <Grid className="w-5 h-5" />}
+              </button>
             </div>
           </div>
         </div>
@@ -404,11 +487,42 @@ export default function CatalogPage({}: CatalogPageProps) {
         <CartModal
           items={cartItems}
           totalAmount={totalAmount}
-          tableNumber="1" // You might want to make this dynamic
+          tableNumber={tableNumber}
           onClose={() => setShowCart(false)}
           onUpdateQuantity={handleUpdateCartQuantity}
           onRemoveItem={handleRemoveFromCart}
           onPlaceOrder={handlePlaceOrder}
+        />
+      )}
+
+      {/* Bill Modal */}
+      {showBill && (
+        <BillModal
+          tableBill={tableBill}
+          tableNumber={tableNumber}
+          businessName={shop.name}
+          onClose={() => setShowBill(false)}
+          onPaymentOrder={handlePaymentOrder}
+        />
+      )}
+
+      {/* Payment Modal */}
+      {showPayment && tableBill && (
+        <PaymentModal
+          items={tableBill.items}
+          totalAmount={tableBill.total}
+          tableNumber={tableNumber}
+          onClose={() => setShowPayment(false)}
+          onPaymentSubmit={handlePaymentSubmit}
+        />
+      )}
+
+      {/* About Modal */}
+      {showAbout && (
+        <AboutModal
+          businessInfo={businessInfo}
+          language={language}
+          onClose={() => setShowAbout(false)}
         />
       )}
     </div>

@@ -37,6 +37,91 @@ class TelegramService {
     }
   }
 
+  async sendBillPhoto(photoUrl: string, tableNumber: string, totalAmount: number, userId?: string): Promise<void> {
+    try {
+      const message = `
+🧾 <b>Bill Request - Table ${tableNumber}</b>
+
+💰 Total Amount: $${totalAmount.toFixed(2)}
+📅 Date: ${new Date().toLocaleString()}
+${userId ? `👤 User ID: ${userId}` : ''}
+
+<i>Bill photo attached above</i>
+      `.trim();
+
+      // Send photo with caption
+      const response = await fetch(`https://api.telegram.org/bot${this.botToken}/sendPhoto`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chat_id: '-1002701066037', // Default chat ID for bills
+          photo: photoUrl,
+          caption: message,
+          parse_mode: 'HTML'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Telegram API error: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Failed to send bill photo to Telegram:', error);
+      throw error;
+    }
+  }
+
+  async sendPaymentProof(paymentData: {
+    screenshotUrl: string;
+    method: string;
+    tableNumber: string;
+    totalAmount: number;
+    items: any[];
+  }): Promise<void> {
+    try {
+      const itemsList = paymentData.items.map(item => 
+        `• ${item.name} × ${item.quantity} = $${item.total.toFixed(2)}`
+      ).join('\n');
+
+      const message = `
+💳 <b>Payment Proof Submitted</b>
+
+🏪 Table: ${paymentData.tableNumber}
+💰 Amount: $${paymentData.totalAmount.toFixed(2)}
+💳 Method: ${paymentData.method === 'bank_transfer' ? 'Bank Transfer' : 'Mobile Money'}
+
+📦 <b>Items:</b>
+${itemsList}
+
+⏰ Submitted: ${new Date().toLocaleString()}
+
+<i>Please verify payment and confirm order</i>
+      `.trim();
+
+      // Send photo with caption
+      const response = await fetch(`https://api.telegram.org/bot${this.botToken}/sendPhoto`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chat_id: '-1002701066037', // Default chat ID for payments
+          photo: paymentData.screenshotUrl,
+          caption: message,
+          parse_mode: 'HTML'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Telegram API error: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Failed to send payment proof to Telegram:', error);
+      throw error;
+    }
+  }
+
   async notifyNewOrder(config: TelegramConfig, orderData: any): Promise<void> {
     const message = `
 🛍️ <b>New Order #${orderData.id}</b>
