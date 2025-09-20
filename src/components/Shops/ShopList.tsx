@@ -50,9 +50,14 @@ export default function ShopList({ shops, onCreateShop, onSelectShop, selectedSh
                   <button className="p-1 text-gray-400 hover:text-gray-600">
                     <Settings className="h-4 w-4" />
                   </button>
-                  <button className="p-1 text-gray-400 hover:text-gray-600">
+                  <a 
+                    href={`/shop/${encodeURIComponent(shop.name)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-1 text-gray-400 hover:text-gray-600"
+                  >
                     <ExternalLink className="h-4 w-4" />
-                  <p className="text-sm text-gray-500">/shop/{shop.name}</p>
+                  </a>
                 </div>
               </div>
 
@@ -75,17 +80,11 @@ export default function ShopList({ shops, onCreateShop, onSelectShop, selectedSh
                   shop.isActive 
                     ? 'bg-emerald-100 text-emerald-800' 
                     : 'bg-gray-100 text-gray-800'
-                <a 
-                  href={`/shop/${encodeURIComponent(shop.name)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-1 text-gray-400 hover:text-gray-600"
-                >
+                }`}>
                   {shop.isActive ? 'Active' : 'Inactive'}
-                </a>
+                </span>
               </div>
             </div>
-          }
           </div>
         ))}
       </div>
@@ -115,6 +114,4 @@ export default function ShopList({ shops, onCreateShop, onSelectShop, selectedSh
     </div>
   );
 }
-        }
-  )
 }
