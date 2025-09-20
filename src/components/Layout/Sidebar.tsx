@@ -22,7 +22,7 @@ const menuItems = [
   { id: 'products', label: 'Products', icon: Package },
   { id: 'orders', label: 'Orders', icon: ShoppingCart },
   { id: 'customers', label: 'Customers', icon: Users },
-  { id: 'departments', label: 'Departments', icon: MessageSquare },
+  { id: 'telegram', label: 'Telegram Setup', icon: MessageSquare },
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
