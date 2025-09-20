@@ -188,6 +188,47 @@ export default function SettingsPanel({ selectedShop }: SettingsPanelProps) {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Shop Catalog Links
+                  </label>
+                  <div className="space-y-2">
+                    {selectedShop ? (
+                      <div className="p-3 bg-blue-50 rounded-lg">
+                        <p className="text-sm font-medium text-blue-800 mb-1">
+                          {selectedShop.name}
+                        </p>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="text"
+                            value={`${window.location.origin}/shop/${selectedShop.slug}`}
+                            readOnly
+                            className="flex-1 px-2 py-1 text-sm border border-blue-200 rounded bg-white text-blue-700"
+                          />
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(`${window.location.origin}/shop/${selectedShop.slug}`);
+                              alert('Link copied to clipboard!');
+                            }}
+                            className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors duration-200"
+                          >
+                            Copy
+                          </button>
+                          <a
+                            href={`${window.location.origin}/shop/${selectedShop.slug}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors duration-200"
+                          >
+                            Visit
+                          </a>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">Select a shop to view its catalog link</p>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Email Address
                   </label>
                   <input

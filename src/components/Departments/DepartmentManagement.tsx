@@ -260,6 +260,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
   const [telegramChatId, setTelegramChatId] = useState(department?.telegramChatId || '');
   const [adminChatId, setAdminChatId] = useState(department?.adminChatId || '');
   const [role, setRole] = useState<'kitchen' | 'cashier' | 'admin'>(department?.role || 'kitchen');
+  const [role, setRole] = useState<'cashier' | 'delivery' | 'admin' | 'sales'>(department?.role || 'cashier');
   const [order, setOrder] = useState(department?.order || 0);
   const [icon, setIcon] = useState(department?.icon || '');
   const [saving, setSaving] = useState(false);
@@ -271,18 +272,20 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
 
   const getRoleIcon = (role: string) => {
     switch (role) {
-      case 'kitchen': return '👨‍🍳';
       case 'cashier': return '💰';
+      case 'delivery': return '🚚';
       case 'admin': return '👨‍💼';
+      case 'sales': return '🛍️';
       default: return '🏢';
     }
   };
 
   const getRoleName = (role: string) => {
     switch (role) {
-      case 'kitchen': return 'Kitchen';
       case 'cashier': return 'Cashier';
+      case 'delivery': return 'Delivery';
       case 'admin': return 'Admin';
+      case 'sales': return 'Sales';
       default: return 'Department';
     }
   };
@@ -413,7 +416,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
             <select
               value={role}
               onChange={(e) => {
-                const newRole = e.target.value as 'kitchen' | 'cashier' | 'admin';
+                const newRole = e.target.value as 'cashier' | 'delivery' | 'admin' | 'sales';
                 setRole(newRole);
                 setName(getRoleName(newRole));
                 setIcon(getRoleIcon(newRole));
@@ -421,14 +424,16 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
               required
             >
-              <option value="kitchen">Kitchen</option>
               <option value="cashier">Cashier</option>
+              <option value="delivery">Delivery</option>
               <option value="admin">Admin</option>
+              <option value="sales">Sales</option>
             </select>
             <p className="text-xs text-gray-500 mt-1">
-              {role === 'kitchen' && 'Receives kitchen and bar orders and notifications'}
               {role === 'cashier' && 'Receives payment confirmations, order approvals, and waiter calls'}
+              {role === 'delivery' && 'Receives delivery assignments and notifications'}
               {role === 'admin' && 'Receives day reports and administrative notifications'}
+              {role === 'sales' && 'Receives sales notifications and customer inquiries'}
             </p>
           </div>
 
@@ -456,8 +461,9 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
               </div>
               <p className="text-xs text-gray-500">
                 {role === 'cashier' && 'This chat will receive payment confirmations, order approvals, and waiter calls'}
+                {role === 'delivery' && 'This chat will receive delivery assignments and notifications'}
                 {role === 'admin' && 'This chat will receive day reports and administrative notifications'}
-                {role === 'kitchen' && 'This chat will receive kitchen and bar orders and notifications'}
+                {role === 'sales' && 'This chat will receive sales notifications and customer inquiries'}
               </p>
             </div>
           </div>
