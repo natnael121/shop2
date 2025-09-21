@@ -166,14 +166,30 @@ ${orderData.customerNotes ? `📝 <b>Notes:</b> ${orderData.customerNotes}\n` : 
         `• ${item.productName} × ${item.quantity} = $${item.total.toFixed(2)}`
       ).join('\n');
 
+      // Create clickable map link if delivery address contains coordinates
+      let deliveryInfo = '';
+      if (orderData.deliveryMethod === 'delivery' && orderData.deliveryAddress) {
+        const address = orderData.deliveryAddress;
+        const coordMatch = address.match(/Lat:\s*([-\d.]+),\s*Lng:\s*([-\d.]+)/);
+        if (coordMatch) {
+          const lat = coordMatch[1];
+          const lng = coordMatch[2];
+          const mapLink = `https://www.google.com/maps?q=${lat},${lng}`;
+          deliveryInfo = `📍 <a href="${mapLink}">📍 View Location on Map</a>`;
+        } else {
+          deliveryInfo = `📍 Address: ${address}`;
+        }
+      }
+
       const message = `
 💳 <b>Payment Confirmation Required</b>
 
 📋 Order ID: #${orderData.id.slice(-6)}
 👤 Customer: ${orderData.customerName}
+${orderData.customerPhone ? `📞 Phone: ${orderData.customerPhone}` : ''}
 📞 Table/Contact: ${orderData.tableNumber}
 🚚 Method: ${orderData.deliveryMethod === 'delivery' ? '🚚 Delivery' : '📦 Pickup'}
-${orderData.deliveryAddress ? `📍 Address: ${orderData.deliveryAddress}` : ''}
+${deliveryInfo}
 💳 Payment: ${orderData.paymentPreference === 'bank_transfer' ? 'Bank Transfer' : 'Mobile Money'}
 💰 Total: $${orderData.total.toFixed(2)}
 

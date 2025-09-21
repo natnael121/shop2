@@ -214,6 +214,7 @@ export default function CatalogPage({}: CatalogPageProps) {
         const shopData = shopDoc.data();
         setBusinessInfo(shopData.businessInfo || {
           name: shop?.name || 'Restaurant',
+          logo: shopData.logo || '',
           description: shop?.description || 'Welcome to our restaurant! We serve delicious food with excellent service.',
           address: '123 Main Street, City, Country',
           phone: '+1-234-567-8900',
@@ -223,15 +224,6 @@ export default function CatalogPage({}: CatalogPageProps) {
             facebook: 'https://facebook.com/restaurant',
             instagram: 'https://instagram.com/restaurant',
             whatsapp: '+1234567890'
-          },
-          operatingHours: {
-            monday: '9:00 AM - 10:00 PM',
-            tuesday: '9:00 AM - 10:00 PM',
-            wednesday: '9:00 AM - 10:00 PM',
-            thursday: '9:00 AM - 10:00 PM',
-            friday: '9:00 AM - 11:00 PM',
-            saturday: '10:00 AM - 11:00 PM',
-            sunday: '10:00 AM - 10:00 PM'
           },
           features: ['Free WiFi', 'Fresh Food', 'Fast Service', 'Top Rated'],
           specialMessage: 'Thank you for choosing us! We appreciate your business.'
@@ -329,6 +321,7 @@ export default function CatalogPage({}: CatalogPageProps) {
 
   const handlePlaceOrderWithDetails = async (orderDetails: {
     customerName: string;
+    customerPhone: string;
     deliveryMethod: 'pickup' | 'delivery';
     deliveryAddress?: string;
     paymentPreference: string;
@@ -341,6 +334,7 @@ export default function CatalogPage({}: CatalogPageProps) {
         shopId: shop!.id,
         customerId: orderDetails.customerName,
         customerName: orderDetails.customerName,
+        customerPhone: orderDetails.customerPhone,
         items: cartItems.map(item => ({
           productId: item.id,
           productName: item.name,
@@ -505,7 +499,7 @@ export default function CatalogPage({}: CatalogPageProps) {
         language={language}
         orderType="dine-in"
         businessName={shop.name}
-        businessLogo={shop.logo}
+        businessLogo={businessInfo?.logo}
       />
 
       {/* Filters */}

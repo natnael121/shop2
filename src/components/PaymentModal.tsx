@@ -205,7 +205,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         <div className="p-4 border-t bg-gray-50">
           <button
             onClick={handleSubmit}
-            disabled={!selectedFile || isSubmitting}
+            disabled={!paymentScreenshot || isSubmitting}
             className="w-full bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {isSubmitting ? (

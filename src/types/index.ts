@@ -47,6 +47,7 @@ export interface Order {
   shopId: string;
   customerId: string;
   customerName?: string;
+  customerPhone?: string;
   items: OrderItem[];
   total: number;
   status: OrderStatus;
@@ -105,15 +106,6 @@ export interface BusinessInfo {
     tiktok?: string;
     youtube?: string;
     whatsapp?: string;
-  };
-  operatingHours?: {
-    monday?: string;
-    tuesday?: string;
-    wednesday?: string;
-    thursday?: string;
-    friday?: string;
-    saturday?: string;
-    sunday?: string;
   };
   features?: string[];
   specialMessage?: string;

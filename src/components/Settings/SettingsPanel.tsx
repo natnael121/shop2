@@ -69,23 +69,17 @@ export default function SettingsPanel({ selectedShop }: SettingsPanelProps) {
 
   const [showApiKey, setShowApiKey] = useState(false);
   const [telegramBotToken, setTelegramBotToken] = useState('');
+  const [businessLogo, setBusinessLogo] = useState<string>('');
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [businessInfo, setBusinessInfo] = useState<BusinessInfo>({
     name: selectedShop?.name || '',
+    logo: '',
     description: '',
     address: '',
     phone: '',
     email: '',
     website: '',
     socialMedia: {},
-    operatingHours: {
-      monday: '9:00 AM - 10:00 PM',
-      tuesday: '9:00 AM - 10:00 PM',
-      wednesday: '9:00 AM - 10:00 PM',
-      thursday: '9:00 AM - 10:00 PM',
-      friday: '9:00 AM - 11:00 PM',
-      saturday: '10:00 AM - 11:00 PM',
-      sunday: '10:00 AM - 10:00 PM'
-    },
     features: ['Free WiFi', 'Fresh Food', 'Fast Service', 'Top Rated'],
     specialMessage: 'Thank you for choosing us! We appreciate your business.'
   });
@@ -119,6 +113,9 @@ export default function SettingsPanel({ selectedShop }: SettingsPanelProps) {
         if (data.businessInfo) {
           setBusinessInfo({ ...businessInfo, ...data.businessInfo });
         }
+        if (data.businessInfo?.logo) {
+          setBusinessLogo(data.businessInfo.logo);
+        }
       }
     } catch (error) {
       console.error('Error loading user settings:', error);
@@ -138,6 +135,7 @@ export default function SettingsPanel({ selectedShop }: SettingsPanelProps) {
         if (data.businessInfo) {
           setBusinessInfo({ ...businessInfo, ...data.businessInfo });
         }
+        setBusinessLogo(data.businessInfo?.logo || '');
       }
     } catch (error) {
       console.error('Error loading shop settings:', error);
@@ -191,6 +189,7 @@ export default function SettingsPanel({ selectedShop }: SettingsPanelProps) {
     try {
       await updateDoc(doc(db, 'shops', selectedShop.id), {
         businessInfo: businessInfo,
+        logo: businessLogo,
         updatedAt: new Date()
       });
       alert('Business information saved successfully!');
@@ -199,6 +198,26 @@ export default function SettingsPanel({ selectedShop }: SettingsPanelProps) {
       alert('Failed to save business information');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+
+    setUploadingLogo(true);
+    try {
+      const logoUrl = await imgbbService.uploadImage(file, `${businessInfo.name || 'business'}-logo-${Date.now()}`);
+      setBusinessLogo(logoUrl);
+      setBusinessInfo(prev => ({
+        ...prev,
+        logo: logoUrl
+      }));
+    } catch (error) {
+      console.error('Error uploading logo:', error);
+      alert('Failed to upload logo. Please try again.');
+    } finally {
+      setUploadingLogo(false);
     }
   };
 
@@ -379,6 +398,43 @@ export default function SettingsPanel({ selectedShop }: SettingsPanelProps) {
             <div>
               <h3 className="text-lg font-medium text-gray-900 mb-4">Business Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Business Logo */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Business Logo
+                  </label>
+                  <div className="flex items-center space-x-4">
+                    {businessLogo ? (
+                      <div className="relative">
+                        <img
+                          src={businessLogo}
+                          alt="Business Logo"
+                          className="w-20 h-20 object-cover rounded-lg border border-gray-300"
+                        />
+                        <button
+                          onClick={() => {
+                            setBusinessLogo('');
+                            setBusinessInfo(prev => ({ ...prev, logo: '' }));
+                          }}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="w-20 h-20 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
+                        <ImageIcon className="w-8 h-8 text-gray-400" />
+                      </div>
+                    )}
+                    <div>
+                      <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" id="logo-upload" />
+                      <label htmlFor="logo-upload" className="cursor-pointer inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
+                        <Upload className="w-4 h-4 mr-2" />
+                        {uploadingLogo ? 'Uploading...' : businessLogo ? 'Change Logo' : 'Upload Logo'}
+                      </label>
+                    </div>
+                  </div>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Business Name
@@ -520,30 +576,6 @@ export default function SettingsPanel({ selectedShop }: SettingsPanelProps) {
                     placeholder="https://twitter.com/yourbusiness"
                   />
                 </div>
-              </div>
-            </div>
-
-            {/* Operating Hours */}
-            <div>
-              <h4 className="text-md font-medium text-gray-900 mb-4">Operating Hours</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {Object.entries(businessInfo.operatingHours || {}).map(([day, hours]) => (
-                  <div key={day}>
-                    <label className="block text-sm font-medium text-gray-700 mb-2 capitalize">
-                      {day}
-                    </label>
-                    <input
-                      type="text"
-                      value={hours}
-                      onChange={(e) => setBusinessInfo(prev => ({ 
-                        ...prev, 
-                        operatingHours: { ...prev.operatingHours, [day]: e.target.value }
-                      }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="9:00 AM - 10:00 PM"
-                    />
-                  </div>
-                ))}
               </div>
             </div>
 

@@ -136,35 +136,6 @@ export const AboutModal: React.FC<AboutModalProps> = ({
             </div>
           </div>
 
-          {/* Operating Hours */}
-          <div>
-            <h3 className="text-white font-semibold mb-3 flex items-center space-x-2">
-              <Clock className="w-5 h-5 text-green-400" />
-              <span>{t('operatingHours')}</span>
-            </h3>
-            <div className="space-y-2">
-              {businessInfo.operatingHours ? (
-                Object.entries(businessInfo.operatingHours).map(([day, hours]) => (
-                  <div key={day} className="flex justify-between text-sm">
-                    <span className="text-gray-400 capitalize">{t(day as keyof typeof translations.en)}</span>
-                    <span className="text-gray-300">{hours}</span>
-                  </div>
-                ))
-              ) : (
-                <>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">{t('monday')} - {t('friday')}</span>
-                    <span className="text-gray-300">9:00 AM - 10:00 PM</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">{t('saturday')} - {t('sunday')}</span>
-                    <span className="text-gray-300">10:00 AM - 11:00 PM</span>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-
           {/* Features */}
           <div>
             <h3 className="text-white font-semibold mb-3">{t('features')}</h3>

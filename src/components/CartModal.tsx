@@ -19,6 +19,7 @@ interface CartModalProps {
   onRemoveItem: (itemId: string) => void;
   onPlaceOrder: (orderDetails: {
     customerName: string;
+    customerPhone: string;
     deliveryMethod: 'pickup' | 'delivery';
     deliveryAddress?: string;
     paymentPreference: string;
