@@ -7,7 +7,8 @@ import {
   BarChart3, 
   Settings,
   Store,
-  MessageSquare
+  MessageSquare,
+  Tag
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -20,6 +21,7 @@ const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: Home },
   { id: 'shops', label: 'My Shops', icon: Store },
   { id: 'products', label: 'Products', icon: Package },
+  { id: 'categories', label: 'Categories', icon: Tag },
   { id: 'orders', label: 'Orders', icon: ShoppingCart },
   { id: 'customers', label: 'Customers', icon: Users },
   { id: 'telegram', label: 'Telegram Setup', icon: MessageSquare },
@@ -29,7 +31,7 @@ const menuItems = [
 
 export default function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
   return (
-    <div className="w-64 bg-white shadow-lg border-r border-gray-200 h-screen overflow-y-auto">
+    <div className="w-64 bg-white shadow-lg border-r border-gray-200 h-full flex flex-col">
       <div className="p-6">
         <div className="flex items-center space-x-2">
           <Store className="h-8 w-8 text-blue-600" />
@@ -37,7 +39,7 @@ export default function Sidebar({ activeSection, onSectionChange }: SidebarProps
         </div>
       </div>
       
-      <nav className="mt-8 px-4">
+      <nav className="mt-8 px-4 flex-1 overflow-y-auto">
         <ul className="space-y-2">
           {menuItems.map((item) => {
             const Icon = item.icon;

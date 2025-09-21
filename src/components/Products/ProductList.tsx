@@ -204,12 +204,14 @@ export default function ProductList({
             
             <div className="p-4">
               <div className="flex items-start justify-between mb-2">
-                <h3 className="font-semibold text-gray-900 truncate">{product.name}</h3>
+                <h3 className="font-semibold text-gray-900 text-base leading-tight">{product.name}</h3>
                 <div className="flex space-x-1 ml-2">
-                  <button className="p-1 text-gray-400 hover:text-blue-600">
+                  <button
                     onClick={() => handleEditProduct(product)}
                     className="p-1 text-gray-400 hover:text-blue-600 transition-colors duration-200"
                     title="Edit Product"
+                  >
+                    <Edit className="h-4 w-4" />
                   </button>
                   <button
                     onClick={() => handlePromoteProduct(product)}
@@ -233,28 +235,29 @@ export default function ProductList({
                 </div>
               </div>
               
-              <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+              <p className="text-sm text-gray-600 mb-3 line-clamp-2 min-h-[2.5rem]">
                 {product.description}
               </p>
               
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-lg font-bold text-gray-900">${product.price.toFixed(2)}</span>
-                  <p className="text-sm text-gray-500">Stock: {product.stock}</p>
+                  <div className="flex items-center space-x-2 mt-1">
+                    <p className="text-sm text-gray-500">Stock: {product.stock}</p>
+                    {product.stock <= product.lowStockAlert && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        Low
+                      </span>
+                    )}
+                  </div>
                   {product.sku && (
                     <p className="text-xs text-gray-400">SKU: {product.sku}</p>
                   )}
                 </div>
-                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full whitespace-nowrap">
                   {product.category}
                 </span>
               </div>
-              
-              {product.stock <= product.lowStockAlert && (
-                <div className="mt-2 px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full text-center">
-                  Low Stock Alert
-                </div>
-              )}
             </div>
           </div>
         ))}
@@ -279,13 +282,15 @@ export default function ProductList({
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSubmit={onCreateProduct}
+        selectedShopId={selectedShopId}
       />
 
-      {editingProduct && (
+          onCreateProduct={onCreateProduct}
         <EditProductModal
           product={editingProduct}
           onClose={() => setEditingProduct(null)}
           onSubmit={handleUpdateProduct}
+          selectedShopId={selectedShopId}
         />
       )}
     </div>

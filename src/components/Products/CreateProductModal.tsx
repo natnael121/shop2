@@ -1,14 +1,19 @@
 import React, { useState } from 'react';
 import { X, Upload, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { imgbbService } from '../../services/imgbb';
+import { useCategories } from '../../hooks/useCategories';
+import { useAuth } from '../../hooks/useAuth';
 
 interface CreateProductModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (productData: any) => Promise<string>;
+  selectedShopId?: string;
 }
 
-export default function CreateProductModal({ isOpen, onClose, onSubmit }: CreateProductModalProps) {
+export default function CreateProductModal({ isOpen, onClose, onSubmit, selectedShopId }: CreateProductModalProps) {
+  const { user } = useAuth();
+  const { categories } = useCategories(user?.uid, selectedShopId);
   const [loading, setLoading] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [formData, setFormData] = useState({
@@ -275,21 +280,28 @@ export default function CreateProductModal({ isOpen, onClose, onSubmit }: Create
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">Select a category</option>
-                <option value="Electronics">Electronics</option>
-                <option value="Clothing">Clothing</option>
-                <option value="Food & Beverages">Food & Beverages</option>
-                <option value="Home & Garden">Home & Garden</option>
-                <option value="Sports & Outdoors">Sports & Outdoors</option>
-                <option value="Books & Media">Books & Media</option>
-                <option value="Health & Beauty">Health & Beauty</option>
-                <option value="Toys & Games">Toys & Games</option>
-                <option value="Automotive">Automotive</option>
-                <option value="Office Supplies">Office Supplies</option>
-                <option value="Pet Supplies">Pet Supplies</option>
-                <option value="Jewelry & Accessories">Jewelry & Accessories</option>
-                <option value="Art & Crafts">Art & Crafts</option>
-                <option value="Music & Instruments">Music & Instruments</option>
-                <option value="Other">Other</option>
+                {categories.map(category => (
+                  <option key={category.id} value={category.name}>{category.name}</option>
+                ))}
+                {categories.length === 0 && (
+                  <>
+                    <option value="Electronics">Electronics</option>
+                    <option value="Clothing">Clothing</option>
+                    <option value="Food & Beverages">Food & Beverages</option>
+                    <option value="Home & Garden">Home & Garden</option>
+                    <option value="Sports & Outdoors">Sports & Outdoors</option>
+                    <option value="Books & Media">Books & Media</option>
+                    <option value="Health & Beauty">Health & Beauty</option>
+                    <option value="Toys & Games">Toys & Games</option>
+                    <option value="Automotive">Automotive</option>
+                    <option value="Office Supplies">Office Supplies</option>
+                    <option value="Pet Supplies">Pet Supplies</option>
+                    <option value="Jewelry & Accessories">Jewelry & Accessories</option>
+                    <option value="Art & Crafts">Art & Crafts</option>
+                    <option value="Music & Instruments">Music & Instruments</option>
+                    <option value="Other">Other</option>
+                  </>
+                )}
               </select>
             </div>
 

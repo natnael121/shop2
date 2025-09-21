@@ -14,6 +14,7 @@ import ShopList from './components/Shops/ShopList';
 import ProductList from './components/Products/ProductList';
 import { OrderManagement } from './components/Orders/OrderManagement';
 import DepartmentManagement from './components/Departments/DepartmentManagement';
+import CategoryManagement from './components/Categories/CategoryManagement';
 import SettingsPanel from './components/Settings/SettingsPanel';
 import { Shop } from './types';
 
@@ -165,6 +166,11 @@ function DashboardApp() {
           <DepartmentManagement selectedShopId={selectedShop?.id} />
         );
         
+      case 'categories':
+        return (
+          <CategoryManagement selectedShopId={selectedShop?.id} />
+        );
+        
       case 'analytics':
         return (
           <div className="text-center py-12">
@@ -184,16 +190,16 @@ function DashboardApp() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
       <Sidebar 
         activeSection={activeSection} 
         onSectionChange={setActiveSection} 
       />
       
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
         
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-6 bg-gray-50">
           {selectedShop && (
             <div className="mb-6">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">

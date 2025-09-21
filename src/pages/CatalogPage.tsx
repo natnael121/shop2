@@ -481,7 +481,7 @@ export default function CatalogPage({}: CatalogPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-gray-50 pb-20 overflow-x-hidden">
       {/* Table Header */}
       <TableHeader
         tableNumber={tableNumber}
@@ -492,7 +492,7 @@ export default function CatalogPage({}: CatalogPageProps) {
       />
 
       {/* Filters */}
-      <div className="bg-white border-b">
+      <div className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-col sm:flex-row gap-4 items-center">
             <button
@@ -501,7 +501,7 @@ export default function CatalogPage({}: CatalogPageProps) {
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <div className="relative flex-1">
+            <div className="relative flex-1 min-w-0">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
@@ -512,11 +512,11 @@ export default function CatalogPage({}: CatalogPageProps) {
               />
             </div>
             
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-shrink-0">
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-0"
               >
                 <option value="">All Categories</option>
                 {categories.map(category => (
@@ -527,7 +527,7 @@ export default function CatalogPage({}: CatalogPageProps) {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as any)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-0"
               >
                 <option value="newest">Newest First</option>
                 <option value="name">Name A-Z</option>
@@ -537,7 +537,7 @@ export default function CatalogPage({}: CatalogPageProps) {
               
               <button
                 onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-                className="p-2 text-gray-400 hover:text-gray-600 transition-colors duration-200 border border-gray-300 rounded-lg"
+                className="p-2 text-gray-400 hover:text-gray-600 transition-colors duration-200 border border-gray-300 rounded-lg flex-shrink-0"
               >
                 {viewMode === 'grid' ? <List className="w-5 h-5" /> : <Grid className="w-5 h-5" />}
               </button>
@@ -547,7 +547,7 @@ export default function CatalogPage({}: CatalogPageProps) {
       </div>
 
       {/* Products */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 overflow-y-auto">
         {filteredProducts.length === 0 ? (
           <div className="text-center py-12">
             <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -561,7 +561,7 @@ export default function CatalogPage({}: CatalogPageProps) {
           </div>
         ) : (
           <div className={viewMode === 'grid' 
-            ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4'
+            ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 auto-rows-fr'
             : 'space-y-4'
           }>
             {filteredProducts.map((product) => (
