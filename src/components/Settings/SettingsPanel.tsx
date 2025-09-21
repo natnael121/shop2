@@ -4,8 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { Shop, BusinessInfo } from '../../types';
-import { ImageIcon } from 'lucide-react';
-
+import { Package, Plus, Edit, Trash2, Search, Filter, Image as ImageIcon, Megaphone } from 'lucide-react';
 
 interface SettingsPanelProps {
   selectedShop?: Shop;
