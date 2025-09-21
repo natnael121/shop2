@@ -112,7 +112,7 @@ export interface Department {
   id: string;
   shopId: string;
   name: string;
-  type: 'shop' | 'cashier' | 'delivery';
+  type: 'shop' | 'cashier' | 'delivery' | 'admin';
   telegramGroupId: string;
   isActive: boolean;
   createdAt: Date;

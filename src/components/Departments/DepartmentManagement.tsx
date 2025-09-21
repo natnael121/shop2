@@ -10,7 +10,7 @@ interface Department {
   name: string;
   telegramChatId: string;
   adminChatId?: string;
-  role: 'kitchen' | 'cashier' | 'admin';
+  role: 'kitchen' | 'cashier' | 'admin' | 'shop';
   order: number;
   icon: string;
   userId: string;
@@ -278,7 +278,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
   const [name, setName] = useState(department?.name || '');
   const [telegramChatId, setTelegramChatId] = useState(department?.telegramChatId || '');
   const [adminChatId, setAdminChatId] = useState(department?.adminChatId || '');
-  const [role, setRole] = useState<'cashier' | 'delivery' | 'admin' | 'sales'>(department?.role || 'cashier');
+  const [role, setRole] = useState<'cashier' | 'delivery' | 'admin' | 'sales' | 'shop'>(department?.role || 'cashier');
   const [order, setOrder] = useState(department?.order || 0);
   const [icon, setIcon] = useState(department?.icon || '');
   const [saving, setSaving] = useState(false);
@@ -294,6 +294,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
       case 'delivery': return '🚚';
       case 'admin': return '👨‍💼';
       case 'sales': return '🛍️';
+      case 'shop': return '🏪';
       default: return '🏢';
     }
   };
@@ -304,6 +305,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
       case 'delivery': return 'Delivery';
       case 'admin': return 'Admin';
       case 'sales': return 'Sales';
+      case 'shop': return 'Shop Channel';
       default: return 'Department';
     }
   };
@@ -446,18 +448,20 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
               <option value="delivery">Delivery</option>
               <option value="admin">Admin</option>
               <option value="sales">Sales</option>
+              <option value="shop">Shop Channel</option>
             </select>
             <p className="text-xs text-gray-500 mt-1">
               {role === 'cashier' && 'Receives payment confirmations, order approvals, and waiter calls'}
               {role === 'delivery' && 'Receives delivery assignments and notifications'}
               {role === 'admin' && 'Receives day reports and administrative notifications'}
               {role === 'sales' && 'Receives sales notifications and customer inquiries'}
+              {role === 'shop' && 'Shop channel/group for product promotions and announcements'}
             </p>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              {role === 'cashier' ? 'Cashier' : role === 'admin' ? 'Admin' : 'Department'} Telegram Chat ID *
+              {role === 'cashier' ? 'Cashier' : role === 'admin' ? 'Admin' : role === 'shop' ? 'Shop Channel' : 'Department'} Telegram Chat ID *
             </label>
             <div className="space-y-2">
               <div className="flex space-x-2">
@@ -482,6 +486,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
                 {role === 'delivery' && 'This chat will receive delivery assignments and notifications'}
                 {role === 'admin' && 'This chat will receive day reports and administrative notifications'}
                 {role === 'sales' && 'This chat will receive sales notifications and customer inquiries'}
+                {role === 'shop' && 'This channel/group will receive product promotions and shop announcements'}
               </p>
             </div>
           </div>

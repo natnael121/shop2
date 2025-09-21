@@ -135,6 +135,7 @@ function DashboardApp() {
             onUpdateProduct={updateProduct}
             onDeleteProduct={deleteProduct}
             loading={productsLoading}
+            selectedShopId={selectedShop?.id}
           />
         );
         

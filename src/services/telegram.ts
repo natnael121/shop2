@@ -401,6 +401,61 @@ ${product.description}
       parse_mode: 'HTML'
     });
   }
+
+  async promoteProduct(product: any, chatId: string, shopLink: string): Promise<void> {
+    try {
+      const categoryTag = product.category ? `#${product.category.toLowerCase().replace(/\s+/g, '')}` : '';
+      const subcategoryTag = product.subcategory ? `#${product.subcategory.toLowerCase().replace(/\s+/g, '')}` : '';
+      
+      const message = `
+🔥 <b>Featured Product</b>
+
+🛍️ <b>${product.name}</b>
+
+${product.description}
+
+💰 <b>Price:</b> $${product.price.toFixed(2)}
+📦 <b>Available:</b> ${product.stock} in stock
+${product.sku ? `🏷️ <b>SKU:</b> ${product.sku}` : ''}
+
+🛒 <b>Order Now:</b> <a href="${shopLink}">Visit Our Shop</a>
+
+${categoryTag} ${subcategoryTag}
+
+<i>🚀 Don't miss out on this amazing product!</i>
+      `.trim();
+
+      if (product.images && product.images.length > 0) {
+        // Send photo with caption
+        const response = await fetch(`https://api.telegram.org/bot${this.botToken}/sendPhoto`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            chat_id: chatId,
+            photo: product.images[0],
+            caption: message,
+            parse_mode: 'HTML'
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Telegram API error: ${response.status}`);
+        }
+      } else {
+        // Send text message only
+        await this.sendMessage({
+          chat_id: chatId,
+          text: message,
+          parse_mode: 'HTML'
+        });
+      }
+    } catch (error) {
+      console.error('Failed to promote product to Telegram:', error);
+      throw error;
+    }
+  }
 }
 
 export { TelegramService };

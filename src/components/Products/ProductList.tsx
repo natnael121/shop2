@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
-import { Package, Plus, Edit, Trash2, Search, Filter, Image as ImageIcon } from 'lucide-react';
+import { Package, Plus, Edit, Trash2, Search, Filter, Image as ImageIcon, Megaphone } from 'lucide-react';
 import { Product } from '../../types';
 import CreateProductModal from './CreateProductModal';
 import EditProductModal from './EditProductModal';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
+import { useAuth } from '../../hooks/useAuth';
+import { TelegramService } from '../../services/telegram';
 
 interface ProductListProps {
   products: Product[];
@@ -10,6 +14,7 @@ interface ProductListProps {
   onUpdateProduct: (productId: string, updates: any) => Promise<void>;
   onDeleteProduct: (productId: string) => Promise<void>;
   loading: boolean;
+  selectedShopId?: string;
 }
 
 export default function ProductList({ 
@@ -17,12 +22,15 @@ export default function ProductList({
   onCreateProduct, 
   onUpdateProduct, 
   onDeleteProduct, 
-  loading 
+  loading,
+  selectedShopId
 }: ProductListProps) {
+  const { user } = useAuth();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
+  const [promotingProducts, setPromotingProducts] = useState<Set<string>>(new Set());
 
   const categories = Array.from(new Set(products.map(p => p.category))).filter(Boolean);
   
@@ -56,6 +64,71 @@ export default function ProductList({
       throw error;
     }
   };
+
+  const handlePromoteProduct = async (product: Product) => {
+    if (!user?.uid || !selectedShopId) {
+      alert('Unable to promote product. Please ensure you are logged in and have selected a shop.');
+      return;
+    }
+
+    if (promotingProducts.has(product.id)) return;
+
+    setPromotingProducts(prev => new Set(prev).add(product.id));
+
+    try {
+      // Get bot token
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (!userDoc.exists()) {
+        throw new Error('User configuration not found');
+      }
+
+      const userData = userDoc.data();
+      const botToken = userData.telegramBotToken;
+
+      if (!botToken) {
+        throw new Error('Telegram bot token not configured. Please set up Telegram integration in Settings.');
+      }
+
+      // Get shop department (role: 'shop')
+      const departmentsQuery = query(
+        collection(db, 'departments'),
+        where('userId', '==', user.uid),
+        where('shopId', '==', selectedShopId),
+        where('role', '==', 'shop')
+      );
+
+      const departmentsSnapshot = await getDocs(departmentsQuery);
+      
+      if (departmentsSnapshot.empty) {
+        throw new Error('No shop channel/group configured. Please set up a shop department in Telegram Setup.');
+      }
+
+      const shopDepartment = departmentsSnapshot.docs[0].data();
+      const shopChatId = shopDepartment.telegramChatId;
+
+      // Create Telegram service and send product promotion
+      const telegram = new TelegramService(botToken);
+      
+      // Get current shop name for the product link
+      const shopDoc = await getDoc(doc(db, 'shops', selectedShopId));
+      const shopName = shopDoc.exists() ? shopDoc.data().name : 'Shop';
+      const productLink = `${window.location.origin}/shop/${encodeURIComponent(shopName)}`;
+
+      await telegram.promoteProduct(product, shopChatId, productLink);
+      
+      alert('Product promoted successfully to shop channel!');
+    } catch (error) {
+      console.error('Error promoting product:', error);
+      alert(`Failed to promote product: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setPromotingProducts(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(product.id);
+        return newSet;
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -137,6 +210,18 @@ export default function ProductList({
                     onClick={() => handleEditProduct(product)}
                     className="p-1 text-gray-400 hover:text-blue-600 transition-colors duration-200"
                     title="Edit Product"
+                  </button>
+                  <button
+                    onClick={() => handlePromoteProduct(product)}
+                    disabled={promotingProducts.has(product.id)}
+                    className="p-1 text-gray-400 hover:text-green-600 transition-colors duration-200 disabled:opacity-50"
+                    title="Promote to Shop Channel"
+                  >
+                    {promotingProducts.has(product.id) ? (
+                      <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Megaphone className="h-4 w-4" />
+                    )}
                   </button>
                   <button 
                     onClick={() => handleDeleteProduct(product.id)}
