@@ -25,6 +25,7 @@ interface CartModalProps {
     paymentPreference: string;
     customerNotes: string;
     requiresPaymentConfirmation?: boolean;
+    paymentPhotoUrl?: string;
   }) => void;
 }
 
@@ -46,6 +47,7 @@ export const CartModal: React.FC<CartModalProps> = ({
   const [customerNotes, setCustomerNotes] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [showPaymentConfirmation, setShowPaymentConfirmation] = React.useState(false);
+  const [paymentPhoto, setPaymentPhoto] = React.useState<File | null>(null);
 
   const handlePlaceOrder = async () => {
     if (!customerName.trim()) {
@@ -55,6 +57,13 @@ export const CartModal: React.FC<CartModalProps> = ({
 
     if (deliveryMethod === 'delivery' && !deliveryAddress.trim()) {
       alert('Please enter delivery address');
+      return;
+    }
+
+    // Check if payment photo is required
+    const requiresPhoto = paymentPreference === 'bank_transfer' || paymentPreference === 'mobile_money';
+    if (requiresPhoto && !paymentPhoto) {
+      alert('Please upload payment proof photo');
       return;
     }
 
@@ -88,8 +97,20 @@ export const CartModal: React.FC<CartModalProps> = ({
   };
 
   const handlePaymentConfirmation = async () => {
+    if (!paymentPhoto && (paymentPreference === 'bank_transfer' || paymentPreference === 'mobile_money')) {
+      alert('Please upload payment proof photo');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
+      let paymentPhotoUrl = '';
+      if (paymentPhoto) {
+        // Upload payment photo
+        const { imgbbService } = await import('../../services/imgbb');
+        paymentPhotoUrl = await imgbbService.uploadImage(paymentPhoto, `payment_${Date.now()}`);
+      }
+
       await onPlaceOrder({
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
@@ -98,6 +119,7 @@ export const CartModal: React.FC<CartModalProps> = ({
         paymentPreference,
         customerNotes: customerNotes.trim(),
         requiresPaymentConfirmation: true,
+        paymentPhotoUrl,
       });
       onClose();
     } catch (error) {
@@ -367,6 +389,25 @@ export const CartModal: React.FC<CartModalProps> = ({
                 <option value="card">Credit/Debit Card</option>
               </select>
             </div>
+
+            {/* Payment Photo Upload for bank transfer or mobile money */}
+            {(paymentPreference === 'bank_transfer' || paymentPreference === 'mobile_money') && (
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Payment Proof Photo *
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setPaymentPhoto(e.target.files?.[0] || null)}
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-yellow-400 file:text-gray-900 hover:file:bg-yellow-300"
+                  required
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Upload a screenshot or photo of your payment confirmation
+                </p>
+              </div>
+            )}
 
             {/* Customer Notes */}
             <div>

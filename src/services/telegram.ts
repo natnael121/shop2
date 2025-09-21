@@ -128,6 +128,21 @@ ${itemsList}
         `• ${item.productName} × ${item.quantity} = $${item.total.toFixed(2)}`
       ).join('\n');
 
+      // Create clickable map link if delivery address contains coordinates
+      let deliveryInfo = '';
+      if (orderData.deliveryMethod === 'delivery' && orderData.deliveryAddress) {
+        const address = orderData.deliveryAddress;
+        const coordMatch = address.match(/Lat:\s*([-\d.]+),\s*Lng:\s*([-\d.]+)/);
+        if (coordMatch) {
+          const lat = coordMatch[1];
+          const lng = coordMatch[2];
+          const mapLink = `https://www.google.com/maps?q=${lat},${lng}`;
+          deliveryInfo = `📍 <a href="${mapLink}">📍 View Location on Map</a>`;
+        } else {
+          deliveryInfo = `📍 Address: ${address}`;
+        }
+      }
+
       const message = `
 🛍️ <b>New Order Pending Approval</b>
 
@@ -135,7 +150,7 @@ ${itemsList}
 👤 Customer: ${orderData.customerName}
 📞 Table/Contact: ${orderData.tableNumber}
 🚚 Method: ${orderData.deliveryMethod === 'delivery' ? '🚚 Delivery' : '📦 Pickup'}
-${orderData.deliveryAddress ? `📍 Address: ${orderData.deliveryAddress}` : ''}
+${deliveryInfo}
 💳 Payment: ${orderData.paymentPreference}
 💰 Total: $${orderData.total.toFixed(2)}
 
@@ -202,6 +217,22 @@ ${orderData.customerNotes ? `📝 <b>Notes:</b> ${orderData.customerNotes}\n` : 
 ⚠️ <b>Customer has confirmed payment completion</b>
 <i>Please verify payment and approve order</i>
       `.trim();
+
+      // Send payment photo if available
+      if (orderData.paymentPhotoUrl) {
+        await fetch(`https://api.telegram.org/bot${this.botToken}/sendPhoto`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            chat_id: chatId,
+            photo: orderData.paymentPhotoUrl,
+            caption: `💳 Payment Proof - Order #${orderData.id.slice(-6)}\n\n👤 ${orderData.customerName}\n📞 ${orderData.customerPhone}\n💰 $${orderData.total.toFixed(2)}`,
+            parse_mode: 'HTML'
+          }),
+        });
+      }
 
       await this.sendMessage({
         chat_id: chatId,
@@ -473,6 +504,8 @@ ${product.description}
 ${product.sku ? `🏷️ <b>SKU:</b> ${product.sku}` : ''}
 
 🛒 <b>Order Now:</b> <a href="${shopLink}">Visit Our Shop</a>
+
+📱 <b>Quick Order:</b> Reply with "ORDER ${product.name}" to place an order
 
 ${categoryTag} ${subcategoryTag}
 

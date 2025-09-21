@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, CheckCircle, XCircle, Eye, Filter, Download, MessageSquare, AlertCircle, Truck, Package } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, Eye, Filter, Download, MessageSquare, AlertCircle, Truck, Package, MapPin } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useOrders } from '../../hooks/useOrders';
 import { Order, OrderStatus } from '../../types';
@@ -771,7 +771,47 @@ Status: ${order.status.toUpperCase()}
             <div>
               <h3 className="font-semibold text-gray-900 mb-2">Delivery Address</h3>
               <div className="bg-blue-50 p-4 rounded-lg">
-                <p className="text-sm text-blue-800">{order.deliveryAddress}</p>
+                {(() => {
+                  const coordMatch = order.deliveryAddress.match(/Lat:\s*([-\d.]+),\s*Lng:\s*([-\d.]+)/);
+                  if (coordMatch) {
+                    const lat = coordMatch[1];
+                    const lng = coordMatch[2];
+                    const mapLink = `https://www.google.com/maps?q=${lat},${lng}`;
+                    return (
+                      <div>
+                        <p className="text-sm text-blue-800 mb-2">{order.deliveryAddress}</p>
+                        <a
+                          href={mapLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
+                        >
+                          <MapPin className="w-4 h-4 mr-1" />
+                          View on Map
+                        </a>
+                      </div>
+                    );
+                  } else {
+                    return <p className="text-sm text-blue-800">{order.deliveryAddress}</p>;
+                  }
+                })()}
+              </div>
+            </div>
+          )}
+
+          {/* Payment Photo */}
+          {order.paymentPhotoUrl && (
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-2">Payment Proof</h3>
+              <div className="bg-green-50 p-4 rounded-lg">
+                <img
+                  src={order.paymentPhotoUrl}
+                  alt="Payment Proof"
+                  className="max-w-full h-auto rounded-lg border border-green-200"
+                />
+                <p className="text-sm text-green-700 mt-2">
+                  Payment method: {order.paymentPreference}
+                </p>
               </div>
             </div>
           )}

@@ -327,6 +327,7 @@ export default function CatalogPage({}: CatalogPageProps) {
     paymentPreference: string;
     customerNotes?: string;
     requiresPaymentConfirmation?: boolean;
+    paymentPhotoUrl?: string;
   }) => {
     try {
       // Create order data
@@ -354,6 +355,9 @@ export default function CatalogPage({}: CatalogPageProps) {
       }
       if (orderDetails.customerNotes) {
         orderData.customerNotes = orderDetails.customerNotes;
+      }
+      if (orderDetails.paymentPhotoUrl) {
+        orderData.paymentPhotoUrl = orderDetails.paymentPhotoUrl;
       }
 
       // Create the order in database      
