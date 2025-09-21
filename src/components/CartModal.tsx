@@ -22,7 +22,7 @@ interface CartModalProps {
     deliveryMethod: 'pickup' | 'delivery';
     deliveryAddress?: string;
     paymentPreference: string;
-    customerNotes?: string;
+    customerNotes: string;
   }) => void;
 }
 
