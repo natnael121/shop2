@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Clock, Package, Star } from 'lucide-react';
+import { Plus, Package } from 'lucide-react';
 import { Product } from '../types';
 
 interface MenuCardProps {
@@ -28,18 +28,15 @@ export const MenuCard: React.FC<MenuCardProps> = ({
   return (
     <div
       onClick={onClick}
-      className={`bg-gray-800 rounded-xl p-2 sm:p-3 cursor-pointer transform transition-all duration-300 hover:scale-105 relative overflow-hidden ${
+      className={`bg-white rounded-xl p-2 sm:p-3 cursor-pointer transform transition-all duration-300 hover:scale-105 relative overflow-hidden border ${
         !isAvailable ? 'opacity-75' : ''
       }`}
     >
-      {/* Background gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-gray-700/20 to-gray-900/40 rounded-xl" />
-
       {/* Content */}
       <div className="relative z-10">
         {/* Image */}
         <div className="relative mb-2 sm:mb-3">
-          <div className="aspect-square rounded-lg overflow-hidden bg-gray-700">
+          <div className="aspect-square rounded-lg overflow-hidden bg-gray-100">
             {product.images && product.images.length > 0 ? (
               <img
                 src={product.images[0]}
@@ -100,24 +97,24 @@ export const MenuCard: React.FC<MenuCardProps> = ({
 
         {/* Item details */}
         <div className="space-y-0.5">
-          <h3 className="text-white font-semibold text-sm sm:text-base leading-tight line-clamp-2">
+          <h3 className="text-gray-900 font-semibold text-sm sm:text-base leading-tight line-clamp-2">
             {product.name}
           </h3>
 
           {/* Description */}
           {product.description && (
-            <p className="text-gray-300 text-xs leading-tight line-clamp-1">
+            <p className="text-gray-600 text-xs leading-tight line-clamp-1">
               {product.description}
             </p>
           )}
 
           <div className="flex items-center justify-between">
-            <span className="text-white font-bold text-sm sm:text-base">
+            <span className="text-gray-900 font-bold text-sm sm:text-base">
               ${product.price.toFixed(2)}
             </span>
             <div className="flex items-center space-x-1">
               {product.stock > 0 && (
-                <span className="text-gray-400 text-[10px] sm:text-xs">
+                <span className="text-gray-500 text-[10px] sm:text-xs">
                   {product.stock} left
                 </span>
               )}
@@ -134,4 +131,4 @@ export const MenuCard: React.FC<MenuCardProps> = ({
       </div>
     </div>
   );
-}; 
+};
