@@ -122,6 +122,109 @@ ${itemsList}
     }
   }
 
+  async sendOrderForApproval(orderData: any): Promise<void> {
+    try {
+      const itemsList = orderData.items.map((item: any) => 
+        `• ${item.productName} × ${item.quantity} = $${item.total.toFixed(2)}`
+      ).join('\n');
+
+      const message = `
+🛍️ <b>New Order Pending Approval</b>
+
+📋 Order ID: #${Date.now().toString().slice(-6)}
+👤 Customer: ${orderData.customerName}
+📞 Table/Contact: ${orderData.tableNumber}
+🚚 Method: ${orderData.deliveryMethod === 'delivery' ? '🚚 Delivery' : '📦 Pickup'}
+${orderData.deliveryAddress ? `📍 Address: ${orderData.deliveryAddress}` : ''}
+💳 Payment: ${orderData.paymentPreference}
+💰 Total: $${orderData.total.toFixed(2)}
+
+📦 <b>Items:</b>
+${itemsList}
+
+${orderData.customerNotes ? `📝 <b>Notes:</b> ${orderData.customerNotes}\n` : ''}
+⏰ Ordered: ${new Date().toLocaleString()}
+
+<i>Please approve or reject this order</i>
+      `.trim();
+
+      // Send to admin chat for approval
+      await this.sendMessage({
+        chat_id: '-1002701066037', // Admin chat ID
+        text: message,
+        parse_mode: 'HTML'
+      });
+    } catch (error) {
+      console.error('Failed to send order for approval:', error);
+      throw error;
+    }
+  }
+
+  async sendApprovedOrderToGroups(orderData: any): Promise<void> {
+    try {
+      const itemsList = orderData.items.map((item: any) => 
+        `• ${item.productName} × ${item.quantity} = $${item.total.toFixed(2)}`
+      ).join('\n');
+
+      // Message for sales group
+      const salesMessage = `
+✅ <b>Order Approved - Sales</b>
+
+📋 Order ID: #${orderData.id.slice(-6)}
+👤 Customer: ${orderData.customerName}
+📞 Contact: ${orderData.tableNumber}
+💰 Total: $${orderData.total.toFixed(2)}
+💳 Payment: ${orderData.paymentPreference}
+
+📦 <b>Items:</b>
+${itemsList}
+
+${orderData.customerNotes ? `📝 <b>Notes:</b> ${orderData.customerNotes}\n` : ''}
+⏰ Approved: ${new Date().toLocaleString()}
+
+<i>Order ready for processing</i>
+      `.trim();
+
+      // Message for delivery group (if delivery)
+      const deliveryMessage = `
+🚚 <b>Delivery Order - Ready</b>
+
+📋 Order ID: #${orderData.id.slice(-6)}
+👤 Customer: ${orderData.customerName}
+📞 Contact: ${orderData.tableNumber}
+📍 Address: ${orderData.deliveryAddress}
+💰 Total: $${orderData.total.toFixed(2)}
+💳 Payment: ${orderData.paymentPreference}
+
+📦 <b>Items:</b>
+${itemsList}
+
+${orderData.customerNotes ? `📝 <b>Notes:</b> ${orderData.customerNotes}\n` : ''}
+⏰ Ready for delivery: ${new Date().toLocaleString()}
+
+<i>Please prepare for delivery</i>
+      `.trim();
+
+      // Send to sales group (using same chat for now, but can be different)
+      await this.sendMessage({
+        chat_id: '-1002701066037', // Sales group chat ID
+        text: salesMessage,
+        parse_mode: 'HTML'
+      });
+
+      // Send to delivery group if it's a delivery order
+      if (orderData.deliveryMethod === 'delivery') {
+        await this.sendMessage({
+          chat_id: '-1002701066037', // Delivery group chat ID
+          text: deliveryMessage,
+          parse_mode: 'HTML'
+        });
+      }
+    } catch (error) {
+      console.error('Failed to send approved order to groups:', error);
+      throw error;
+    }
+  }
   async notifyNewOrder(config: TelegramConfig, orderData: any): Promise<void> {
     const message = `
 🛍️ <b>New Order #${orderData.id}</b>

@@ -46,6 +46,7 @@ export interface Order {
   id: string;
   shopId: string;
   customerId: string;
+  customerName?: string;
   items: OrderItem[];
   total: number;
   status: OrderStatus;
@@ -53,6 +54,8 @@ export interface Order {
   deliveryAddress?: string;
   customerNotes?: string;
   paymentStatus: 'pending' | 'paid' | 'refunded';
+  paymentPreference?: string;
+  tableNumber?: string;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -69,6 +69,10 @@ export const OrderManagement: React.FC<OrderManagementProps> = ({ selectedShopId
       
       const order = orders.find(o => o.id === orderId);
       if (order) {
+        if (action === 'approve') {
+          // Send to sales and delivery groups
+          await telegramService.sendApprovedOrderToGroups(order);
+        }
         await sendTelegramNotification(order, action, status);
       }
       

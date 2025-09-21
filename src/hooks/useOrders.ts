@@ -63,6 +63,31 @@ export function useOrders(shopId: string | undefined) {
     }
   };
 
+  const createPendingOrder = async (orderData: {
+    shopId: string;
+    customerId: string;
+    customerName: string;
+    items: any[];
+    total: number;
+    deliveryMethod: 'pickup' | 'delivery';
+    deliveryAddress?: string;
+    customerNotes?: string;
+    paymentPreference: string;
+    tableNumber: string;
+  }) => {
+    try {
+      const docRef = await addDoc(collection(db, 'orders'), {
+        ...orderData,
+        status: 'pending',
+        paymentStatus: 'pending',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      return docRef.id;
+    } catch (error) {
+      throw error;
+    }
+  };
   const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
     try {
       await updateDoc(doc(db, 'orders', orderId), {
@@ -79,6 +104,7 @@ export function useOrders(shopId: string | undefined) {
     loading,
     error,
     createOrder,
+    createPendingOrder,
     updateOrderStatus
   };
 }

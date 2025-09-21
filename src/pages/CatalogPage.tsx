@@ -269,10 +269,69 @@ export default function CatalogPage({}: CatalogPageProps) {
   };
 
   const handlePlaceOrder = () => {
-    // This would integrate with order placement system
-    alert(`Order placed with ${cartItems.length} items!`);
-    setCartItems([]);
-    setShowCart(false);
+    // This is now handled by the enhanced cart modal
+    setShowCart(true);
+  };
+
+  const handlePlaceOrderWithDetails = async (orderDetails: {
+    customerName: string;
+    deliveryMethod: 'pickup' | 'delivery';
+    deliveryAddress?: string;
+    paymentPreference: string;
+    customerNotes?: string;
+  }) => {
+    try {
+      // Import the orders hook to create the order
+      const { createPendingOrder } = await import('../hooks/useOrders');
+      
+      // Create order data
+      const orderData = {
+        shopId: shop!.id,
+        customerId: orderDetails.customerName,
+        customerName: orderDetails.customerName,
+        items: cartItems.map(item => ({
+          productId: item.id,
+          productName: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          total: item.total
+        })),
+        total: totalAmount,
+        deliveryMethod: orderDetails.deliveryMethod,
+        deliveryAddress: orderDetails.deliveryAddress,
+        customerNotes: orderDetails.customerNotes,
+        paymentPreference: orderDetails.paymentPreference,
+        tableNumber: tableNumber
+      };
+
+      // Create the order in database
+      // Note: We'll need to create this order directly since we can't use the hook here
+      const { db } = await import('../lib/firebase');
+      const { addDoc, collection } = await import('firebase/firestore');
+      
+      const docRef = await addDoc(collection(db, 'orders'), {
+        ...orderData,
+        status: 'pending',
+        paymentStatus: 'pending',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+
+      // Add the order ID to the data for Telegram
+      const orderWithId = { ...orderData, id: docRef.id };
+
+      // Send order to Telegram for admin approval
+      const { telegramService } = await import('../services/telegram');
+      await telegramService.sendOrderForApproval(orderWithId);
+
+      // Clear cart and show success message
+      setCartItems([]);
+      setShowCart(false);
+      alert('Order submitted for approval! You will be notified once it\'s reviewed.');
+    } catch (error) {
+      console.error('Error placing order:', error);
+      throw error;
+    }
   };
 
   const handleWaiterCall = () => {
@@ -498,7 +557,7 @@ export default function CatalogPage({}: CatalogPageProps) {
           onClose={() => setShowCart(false)}
           onUpdateQuantity={handleUpdateCartQuantity}
           onRemoveItem={handleRemoveFromCart}
-          onPlaceOrder={handlePlaceOrder}
+          onPlaceOrder={handlePlaceOrderWithDetails}
         />
       )}
 
