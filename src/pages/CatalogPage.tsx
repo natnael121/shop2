@@ -285,7 +285,7 @@ export default function CatalogPage({}: CatalogPageProps) {
       const { createPendingOrder } = await import('../hooks/useOrders');
       
       // Create order data
-      const orderData = {
+      const orderData: any = {
         shopId: shop!.id,
         customerId: orderDetails.customerName,
         customerName: orderDetails.customerName,
@@ -298,11 +298,17 @@ export default function CatalogPage({}: CatalogPageProps) {
         })),
         total: totalAmount,
         deliveryMethod: orderDetails.deliveryMethod,
-        deliveryAddress: orderDetails.deliveryAddress,
-        customerNotes: orderDetails.customerNotes,
         paymentPreference: orderDetails.paymentPreference,
         tableNumber: tableNumber
       };
+
+      // Only include optional fields if they have values
+      if (orderDetails.deliveryAddress) {
+        orderData.deliveryAddress = orderDetails.deliveryAddress;
+      }
+      if (orderDetails.customerNotes) {
+        orderData.customerNotes = orderDetails.customerNotes;
+      }
 
       // Create the order in database
       // Note: We'll need to create this order directly since we can't use the hook here
