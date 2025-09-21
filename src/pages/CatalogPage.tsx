@@ -9,6 +9,8 @@ import { BillModal } from '../components/BillModal';
 import { PaymentModal } from '../components/PaymentModal';
 import { AboutModal } from '../components/AboutModal';
 import { TableHeader } from '../components/TableHeader';
+import { MenuCard } from '../components/MenuCard';
+import { MenuDetail } from '../components/MenuDetail';
 import { 
   ShoppingCart, 
   Search, 
@@ -239,6 +241,14 @@ export default function CatalogPage({}: CatalogPageProps) {
       };
       setCartItems([...cartItems, newItem]);
     }
+    
+    // Show success feedback
+    const itemName = product.name;
+    const totalQuantity = quantity;
+    setTimeout(() => {
+      // You could add a toast notification here
+      console.log(`Added ${totalQuantity}x ${itemName} to cart`);
+    }, 100);
   };
 
   const handleUpdateCartQuantity = (itemId: string, quantity: number) => {
@@ -440,17 +450,15 @@ export default function CatalogPage({}: CatalogPageProps) {
           </div>
         ) : (
           <div className={viewMode === 'grid' 
-            ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'
+            ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4'
             : 'space-y-4'
           }>
             {filteredProducts.map((product) => (
-              <ProductCard
+              <MenuCard
                 key={product.id}
                 product={product}
-                viewMode={viewMode}
-                onProductClick={handleProductClick}
+                onClick={() => handleProductClick(product)}
                 onAddToCart={handleAddToCart}
-                onShare={handleShare}
               />
             ))}
           </div>
@@ -459,11 +467,10 @@ export default function CatalogPage({}: CatalogPageProps) {
 
       {/* Product Detail Modal */}
       {selectedProduct && (
-        <ProductDetailModal
+        <MenuDetail
           product={selectedProduct}
           onClose={() => setSelectedProduct(null)}
           onAddToCart={handleAddToCart}
-          onShare={handleShare}
         />
       )}
 
@@ -525,268 +532,6 @@ export default function CatalogPage({}: CatalogPageProps) {
           onClose={() => setShowAbout(false)}
         />
       )}
-    </div>
-  );
-}
-
-// Product Card Component
-interface ProductCardProps {
-  product: Product;
-  viewMode: 'grid' | 'list';
-  onProductClick: (product: Product) => void;
-  onAddToCart: (product: Product, quantity?: number) => void;
-  onShare: (product: Product) => void;
-}
-
-function ProductCard({ product, viewMode, onProductClick, onAddToCart, onShare }: ProductCardProps) {
-  if (viewMode === 'list') {
-    return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow duration-200">
-        <div className="flex items-center space-x-4">
-          <div className="w-20 h-20 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
-            {product.images && product.images.length > 0 ? (
-              <img
-                src={product.images[0]}
-                alt={product.name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <Package className="w-8 h-8 text-gray-400" />
-              </div>
-            )}
-          </div>
-          
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-gray-900 truncate">{product.name}</h3>
-            <p className="text-sm text-gray-600 line-clamp-2 mt-1">{product.description}</p>
-            <div className="flex items-center justify-between mt-2">
-              <div className="flex items-center space-x-2">
-                <span className="text-lg font-bold text-gray-900">${product.price.toFixed(2)}</span>
-                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                  {product.category}
-                </span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onShare(product);
-                  }}
-                  className="p-1 text-gray-400 hover:text-gray-600 transition-colors duration-200"
-                >
-                  <Share2 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => onProductClick(product)}
-                  className="p-1 text-gray-400 hover:text-gray-600 transition-colors duration-200"
-                >
-                  <Eye className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onAddToCart(product);
-                  }}
-                  className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors duration-200"
-                >
-                  Add to Cart
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div 
-      className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200 cursor-pointer"
-      onClick={() => onProductClick(product)}
-    >
-      <div className="aspect-w-1 aspect-h-1 bg-gray-200">
-        {product.images && product.images.length > 0 ? (
-          <img
-            src={product.images[0]}
-            alt={product.name}
-            className="w-full h-48 object-cover"
-          />
-        ) : (
-          <div className="w-full h-48 flex items-center justify-center">
-            <Package className="w-12 h-12 text-gray-400" />
-          </div>
-        )}
-      </div>
-      
-      <div className="p-4">
-        <div className="flex items-start justify-between mb-2">
-          <h3 className="font-semibold text-gray-900 line-clamp-2 flex-1">{product.name}</h3>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onShare(product);
-            }}
-            className="p-1 text-gray-400 hover:text-gray-600 transition-colors duration-200 ml-2"
-          >
-            <Share2 className="w-4 h-4" />
-          </button>
-        </div>
-        
-        <p className="text-sm text-gray-600 line-clamp-2 mb-3">{product.description}</p>
-        
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-lg font-bold text-gray-900">${product.price.toFixed(2)}</span>
-          <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-            {product.category}
-          </span>
-        </div>
-        
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onAddToCart(product);
-          }}
-          className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center space-x-2"
-        >
-          <ShoppingCart className="w-4 h-4" />
-          <span>Add to Cart</span>
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// Product Detail Modal Component
-interface ProductDetailModalProps {
-  product: Product;
-  onClose: () => void;
-  onAddToCart: (product: Product, quantity?: number) => void;
-  onShare: (product: Product) => void;
-}
-
-function ProductDetailModal({ product, onClose, onAddToCart, onShare }: ProductDetailModalProps) {
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [quantity, setQuantity] = useState(1);
-
-  const images = product.images && product.images.length > 0 ? product.images : [];
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">{product.name}</h2>
-            <button
-              onClick={onClose}
-              className="p-2 text-gray-400 hover:text-gray-600 transition-colors duration-200"
-            >
-              ✕
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Images */}
-            <div>
-              <div className="aspect-w-1 aspect-h-1 bg-gray-200 rounded-lg overflow-hidden mb-4">
-                {images.length > 0 ? (
-                  <img
-                    src={images[currentImageIndex]}
-                    alt={product.name}
-                    className="w-full h-96 object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-96 flex items-center justify-center">
-                    <Package className="w-16 h-16 text-gray-400" />
-                  </div>
-                )}
-              </div>
-              
-              {images.length > 1 && (
-                <div className="flex space-x-2 overflow-x-auto">
-                  {images.map((image, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setCurrentImageIndex(index)}
-                      className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 ${
-                        currentImageIndex === index ? 'border-blue-500' : 'border-gray-200'
-                      }`}
-                    >
-                      <img
-                        src={image}
-                        alt={`${product.name} ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Product Info */}
-            <div>
-              <div className="mb-4">
-                <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full">
-                  {product.category}
-                </span>
-                {product.subcategory && (
-                  <span className="ml-2 px-3 py-1 bg-gray-100 text-gray-800 text-sm rounded-full">
-                    {product.subcategory}
-                  </span>
-                )}
-              </div>
-
-              <p className="text-gray-600 mb-6">{product.description}</p>
-
-              <div className="mb-6">
-                <span className="text-3xl font-bold text-gray-900">${product.price.toFixed(2)}</span>
-                {product.sku && (
-                  <p className="text-sm text-gray-500 mt-1">SKU: {product.sku}</p>
-                )}
-              </div>
-
-              <div className="mb-6">
-                <p className="text-sm text-gray-600 mb-2">Stock: {product.stock} available</p>
-                <div className="flex items-center space-x-4">
-                  <label className="text-sm font-medium text-gray-700">Quantity:</label>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
-                    >
-                      -
-                    </button>
-                    <span className="w-12 text-center">{quantity}</span>
-                    <button
-                      onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
-                      className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex space-x-4">
-                <button
-                  onClick={() => onAddToCart(product, quantity)}
-                  className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center space-x-2"
-                >
-                  <ShoppingCart className="w-5 h-5" />
-                  <span>Add to Cart</span>
-                </button>
-                <button
-                  onClick={() => onShare(product)}
-                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200 flex items-center justify-center space-x-2"
-                >
-                  <Share2 className="w-5 h-5" />
-                  <span>Share</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

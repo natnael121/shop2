@@ -1,192 +1,247 @@
 import React, { useState } from 'react';
-import { X, Plus, Minus, Clock, AlertTriangle, Star, ChefHat } from 'lucide-react';
-import { ScheduledMenuItem } from '../types';
-
-const ALLERGEN_OPTIONS = [
-  { id: 'gluten', name: 'Gluten', icon: '🌾' },
-  { id: 'dairy', name: 'Dairy', icon: '🥛' },
-  { id: 'nuts', name: 'Nuts', icon: '🥜' },
-  { id: 'eggs', name: 'Eggs', icon: '🥚' },
-  { id: 'soy', name: 'Soy', icon: '🫘' },
-  { id: 'fish', name: 'Fish', icon: '🐟' },
-  { id: 'shellfish', name: 'Shellfish', icon: '🦐' },
-  { id: 'sesame', name: 'Sesame', icon: '🌰' },
-  { id: 'vegan', name: 'Vegan', icon: '🌱' },
-  { id: 'vegetarian', name: 'Vegetarian', icon: '🥬' },
-  { id: 'spicy', name: 'Spicy', icon: '🌶️' },
-  { id: 'halal', name: 'Halal', icon: '☪️' },
-  { id: 'kosher', name: 'Kosher', icon: '✡️' },
-];
+import { X, Plus, Minus, Package, AlertTriangle, Star, Tag, Box } from 'lucide-react';
+import { Product } from '../types';
 
 interface MenuDetailProps {
-  item: ScheduledMenuItem;
+  product: Product;
   onClose: () => void;
-  onAddToCart: (item: ScheduledMenuItem, quantity: number) => void;
+  onAddToCart: (product: Product, quantity: number) => void;
 }
 
-export const MenuDetail: React.FC<MenuDetailProps> = ({ item, onClose, onAddToCart }) => {
+export const MenuDetail: React.FC<MenuDetailProps> = ({ product, onClose, onAddToCart }) => {
   const [quantity, setQuantity] = useState(1);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const handleAddToCart = () => {
-    onAddToCart(item, quantity);
-    onClose();
+    if (product.isActive && product.stock > 0) {
+      onAddToCart(product, quantity);
+      onClose();
+    }
   };
 
-  const incrementQuantity = () => setQuantity(prev => prev + 1);
-  const decrementQuantity = () => setQuantity(prev => Math.max(1, prev - 1));
+  const incrementQuantity = () => {
+    setQuantity(prev => Math.min(prev + 1, product.stock));
+  };
+  
+  const decrementQuantity = () => {
+    setQuantity(prev => Math.max(1, prev - 1));
+  };
+
+  const isAvailable = product.isActive && product.stock > 0;
+  const isLowStock = product.stock <= product.lowStockAlert;
+  const images = product.images && product.images.length > 0 ? product.images : [];
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2">
       <div className="bg-gray-900 w-full max-w-md max-h-[90vh] rounded-xl overflow-hidden animate-slide-up flex flex-col shadow-xl">
         
-        {/* Image smaller */}
-        <div className="relative h-32">
-          <img
-            src={item.photo || 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg'}
-            alt={item.name}
-            className="w-full h-full object-cover"
-          />
+        {/* Image section */}
+        <div className="relative h-48">
+          {images.length > 0 ? (
+            <img
+              src={images[currentImageIndex]}
+              alt={product.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-gray-700 flex items-center justify-center">
+              <Package className="w-16 h-16 text-gray-400" />
+            </div>
+          )}
+          
           <button
             onClick={onClose}
             className="absolute top-2 right-2 bg-black/50 rounded-full p-1.5"
           >
             <X className="w-4 h-4 text-white" />
           </button>
-        </div>
 
-        {/* Content compact */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-3 text-sm">
-          {/* Title only (price removed here) */}
-          <h2 className="text-base font-bold text-white">{item.name}</h2>
+          {/* Image navigation dots */}
+          {images.length > 1 && (
+            <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex space-x-1">
+              {images.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentImageIndex(index)}
+                  className={`w-2 h-2 rounded-full ${
+                    currentImageIndex === index ? 'bg-white' : 'bg-white/50'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
 
-          {/* Description shorter */}
-          <p className="text-gray-300 text-xs leading-snug line-clamp-2">
-            {item.description}
-          </p>
-
-          {/* Info Row */}
-          <div className="flex items-center justify-between text-xs text-gray-400">
-            <span className="flex items-center space-x-1">
-              <Star className="w-3 h-3 text-yellow-400" /> 
-              <span>{(item.popularity_score / 20).toFixed(1) || "4.5"}</span>
-            </span>
-            <span>100 Kcal</span>
-            {item.preparation_time > 0 && (
-              <span>{item.preparation_time} Min</span>
+          {/* Status badges */}
+          <div className="absolute top-2 left-2 flex flex-col space-y-1">
+            {product.category && (
+              <div className="bg-blue-600 rounded-full px-2 py-0.5">
+                <span className="text-white text-xs font-medium">
+                  {product.category}
+                </span>
+              </div>
+            )}
+            {isLowStock && isAvailable && (
+              <div className="bg-orange-500 rounded-full px-2 py-0.5">
+                <span className="text-white text-xs font-medium">
+                  Low Stock
+                </span>
+              </div>
+            )}
+            {!isAvailable && (
+              <div className="bg-red-500 rounded-full px-2 py-0.5">
+                <span className="text-white text-xs font-medium">
+                  {product.stock === 0 ? 'Out of Stock' : 'Unavailable'}
+                </span>
+              </div>
             )}
           </div>
+        </div>
 
-          {/* Recipe (compact) */}
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 text-sm">
+          {/* Title and basic info */}
           <div>
-            <h3 className="text-white font-semibold mb-1 flex items-center space-x-1 text-xs">
-              <ChefHat className="w-4 h-4" />
-              <span>Recipe</span>
-            </h3>
-            <div className="space-y-1">
-              <div className="flex items-start space-x-2">
-                <div className="w-5 h-5 bg-yellow-400 rounded-full flex items-center justify-center text-gray-900 text-[10px] font-bold flex-shrink-0">
-                  1
+            <h2 className="text-xl font-bold text-white mb-2">{product.name}</h2>
+            
+            {/* Price and stock info */}
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-2xl font-bold text-yellow-400">
+                ${product.price.toFixed(2)}
+              </span>
+              <div className="text-right">
+                <div className="text-gray-300 text-sm">
+                  {product.stock} in stock
                 </div>
-                <p className="text-gray-300 text-[11px] leading-snug">
-                  According to the recipe, the potatoes are...
-                </p>
+                {product.sku && (
+                  <div className="text-gray-400 text-xs">
+                    SKU: {product.sku}
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Ingredients (tiny grid) */}
-          {item.ingredients && (
+          {/* Description */}
+          {product.description && (
             <div>
-              <h3 className="text-white font-semibold mb-1 text-xs">Ingredients</h3>
-              <div className="grid grid-cols-4 gap-1.5">
-                {item.ingredients.split(',').slice(0, 4).map((ingredient, i) => {
-                  const icons = ['🥔', '🧅', '🍅', '🥩'];
-                  return (
-                    <div key={i} className="text-center">
-                      <div className="w-8 h-8 bg-gray-800 rounded-lg flex items-center justify-center mb-0.5">
-                        <span className="text-base">{icons[i] || '🥄'}</span>
-                      </div>
-                      <span className="text-gray-300 text-[10px] truncate">
-                        {ingredient.trim()}
-                      </span>
-                    </div>
-                  );
-                })}
+              <h3 className="text-white font-semibold mb-2 flex items-center space-x-2">
+                <span>Description</span>
+              </h3>
+              <p className="text-gray-300 text-sm leading-relaxed">
+                {product.description}
+              </p>
+            </div>
+          )}
+
+          {/* Product details */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Category */}
+            <div className="bg-gray-800 rounded-lg p-3">
+              <div className="flex items-center space-x-2 mb-1">
+                <Tag className="w-4 h-4 text-blue-400" />
+                <span className="text-white font-semibold text-xs">Category</span>
+              </div>
+              <span className="text-gray-300 text-sm">{product.category}</span>
+            </div>
+
+            {/* Stock Status */}
+            <div className="bg-gray-800 rounded-lg p-3">
+              <div className="flex items-center space-x-2 mb-1">
+                <Box className="w-4 h-4 text-green-400" />
+                <span className="text-white font-semibold text-xs">Stock</span>
+              </div>
+              <span className={`text-sm ${
+                product.stock > product.lowStockAlert ? 'text-green-400' : 
+                product.stock > 0 ? 'text-orange-400' : 'text-red-400'
+              }`}>
+                {product.stock > 0 ? `${product.stock} available` : 'Out of stock'}
+              </span>
+            </div>
+          </div>
+
+          {/* Subcategory if available */}
+          {product.subcategory && (
+            <div>
+              <h3 className="text-white font-semibold mb-1 text-sm">Subcategory</h3>
+              <span className="text-gray-300 text-sm">{product.subcategory}</span>
+            </div>
+          )}
+
+          {/* Low stock warning */}
+          {isLowStock && isAvailable && (
+            <div className="bg-orange-500/20 border border-orange-500/30 rounded-lg p-3">
+              <div className="flex items-center space-x-2">
+                <AlertTriangle className="w-4 h-4 text-orange-400" />
+                <span className="text-orange-300 text-sm font-medium">
+                  Only {product.stock} left in stock!
+                </span>
               </div>
             </div>
           )}
 
-          {/* Allergens (tiny grid) */}
-          {item.allergens && (
+          {/* Additional images preview */}
+          {images.length > 1 && (
             <div>
-              <h3 className="text-white font-semibold mb-1 text-xs flex items-center space-x-1">
-                <AlertTriangle className="w-3 h-3 text-red-400" />
-                <span>Allergens</span>
-              </h3>
-              <div className="grid grid-cols-4 gap-1.5">
-                {item.allergens.split(',').map((allergen, i) => {
-                  const found = ALLERGEN_OPTIONS.find(a => 
-                    a.name.toLowerCase() === allergen.trim().toLowerCase()
-                  );
-                  return (
-                    <div key={i} className="text-center">
-                      <div className="w-8 h-8 bg-gray-800 rounded-lg flex items-center justify-center mb-0.5">
-                        <span className="text-base">{found?.icon || '⚠️'}</span>
-                      </div>
-                      <span className="text-gray-300 text-[10px] truncate">
-                        {found?.name || allergen}
-                      </span>
-                    </div>
-                  );
-                })}
+              <h3 className="text-white font-semibold mb-2 text-sm">More Images</h3>
+              <div className="grid grid-cols-4 gap-2">
+                {images.slice(1, 5).map((image, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentImageIndex(index + 1)}
+                    className="aspect-square rounded-lg overflow-hidden bg-gray-700 hover:opacity-80 transition-opacity"
+                  >
+                    <img
+                      src={image}
+                      alt={`${product.name} ${index + 2}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
               </div>
             </div>
           )}
         </div>
 
-        {/* Footer compact */}
-        <div className="p-3 border-t border-gray-800">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center bg-gray-800 rounded-lg">
+        {/* Footer */}
+        <div className="p-4 border-t border-gray-800 bg-gray-800">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center bg-gray-700 rounded-lg">
               <button
                 onClick={decrementQuantity}
-                className="p-1.5 hover:bg-gray-700 rounded-l-lg"
-                disabled={!item.available || !item.isCurrentlyAvailable}
+                className="p-2 hover:bg-gray-600 rounded-l-lg transition-colors"
+                disabled={!isAvailable}
               >
-                <Minus className="w-3 h-3 text-white" />
+                <Minus className="w-4 h-4 text-white" />
               </button>
-              <span className="px-3 py-1 font-bold text-white text-sm">{quantity}</span>
+              <span className="px-4 py-2 font-bold text-white">{quantity}</span>
               <button
                 onClick={incrementQuantity}
-                className="p-1.5 hover:bg-gray-700 rounded-r-lg"
-                disabled={!item.available || !item.isCurrentlyAvailable}
+                className="p-2 hover:bg-gray-600 rounded-r-lg transition-colors"
+                disabled={!isAvailable || quantity >= product.stock}
               >
-                <Plus className="w-3 h-3 text-white" />
+                <Plus className="w-4 h-4 text-white" />
               </button>
             </div>
             <div className="text-right">
               {quantity > 1 && (
-                <div className="text-gray-400 text-[11px] mb-0.5">
-                  ${item.price.toFixed(2)} × {quantity}
+                <div className="text-gray-400 text-sm mb-1">
+                  ${product.price.toFixed(2)} × {quantity}
                 </div>
               )}
-              <div className="text-lg font-bold text-yellow-400">
-                ${(item.price * quantity).toFixed(2)}
+              <div className="text-xl font-bold text-yellow-400">
+                ${(product.price * quantity).toFixed(2)}
               </div>
             </div>
           </div>
 
           <button
             onClick={handleAddToCart}
-            disabled={!item.available || !item.isCurrentlyAvailable}
-            className="w-full bg-yellow-400 text-gray-900 py-2 rounded-lg font-semibold text-sm hover:bg-yellow-300 transition-colors disabled:bg-gray-600 disabled:text-gray-400"
+            disabled={!isAvailable}
+            className="w-full bg-yellow-400 text-gray-900 py-3 rounded-lg font-semibold hover:bg-yellow-300 transition-colors disabled:bg-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed"
           >
-            {!item.available ? 'Unavailable' : 
-             !item.isCurrentlyAvailable ? 
-               (item.nextAvailableSchedule ? 
-                 `Available at ${item.nextAvailableSchedule.name}` : 
-                 'Not Available Now') : 
-               'Add to Order'}
+            {!product.isActive ? 'Product Unavailable' : 
+             product.stock === 0 ? 'Out of Stock' : 
+             'Add to Cart'}
           </button>
         </div>
       </div>
