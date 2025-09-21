@@ -292,7 +292,7 @@ export default function ProductList({
           onSubmit={handleUpdateProduct}
           selectedShopId={selectedShopId}
         />
-      )}
+      )
     </div>
   );
 }
