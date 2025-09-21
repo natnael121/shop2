@@ -37,7 +37,7 @@ class TelegramService {
     }
   }
 
-  async sendBillPhoto(photoUrl: string, tableNumber: string, totalAmount: number, userId?: string): Promise<void> {
+  async sendBillPhoto(photoUrl: string, tableNumber: string, totalAmount: number, chatId: string, userId?: string): Promise<void> {
     try {
       const message = `
 🧾 <b>Bill Request - Table ${tableNumber}</b>
@@ -56,7 +56,7 @@ ${userId ? `👤 User ID: ${userId}` : ''}
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          chat_id: '-1002701066037', // Default chat ID for bills
+          chat_id: chatId,
           photo: photoUrl,
           caption: message,
           parse_mode: 'HTML'
@@ -78,7 +78,7 @@ ${userId ? `👤 User ID: ${userId}` : ''}
     tableNumber: string;
     totalAmount: number;
     items: any[];
-  }): Promise<void> {
+  }, chatId: string): Promise<void> {
     try {
       const itemsList = paymentData.items.map(item => 
         `• ${item.name} × ${item.quantity} = $${item.total.toFixed(2)}`
@@ -106,7 +106,7 @@ ${itemsList}
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          chat_id: '-1002701066037', // Default chat ID for payments
+          chat_id: chatId,
           photo: paymentData.screenshotUrl,
           caption: message,
           parse_mode: 'HTML'
@@ -122,7 +122,7 @@ ${itemsList}
     }
   }
 
-  async sendOrderForApproval(orderData: any): Promise<void> {
+  async sendOrderForApproval(orderData: any, chatId: string): Promise<void> {
     try {
       const itemsList = orderData.items.map((item: any) => 
         `• ${item.productName} × ${item.quantity} = $${item.total.toFixed(2)}`
@@ -150,7 +150,7 @@ ${orderData.customerNotes ? `📝 <b>Notes:</b> ${orderData.customerNotes}\n` : 
 
       // Send to admin chat for approval
       await this.sendMessage({
-        chat_id: '-1002701066037', // Admin chat ID
+        chat_id: chatId,
         text: message,
         parse_mode: 'HTML'
       });
@@ -160,7 +160,7 @@ ${orderData.customerNotes ? `📝 <b>Notes:</b> ${orderData.customerNotes}\n` : 
     }
   }
 
-  async sendApprovedOrderToGroups(orderData: any): Promise<void> {
+  async sendApprovedOrderToGroups(orderData: any, salesChatId: string, deliveryChatId?: string): Promise<void> {
     try {
       const itemsList = orderData.items.map((item: any) => 
         `• ${item.productName} × ${item.quantity} = $${item.total.toFixed(2)}`
@@ -207,15 +207,15 @@ ${orderData.customerNotes ? `📝 <b>Notes:</b> ${orderData.customerNotes}\n` : 
 
       // Send to sales group (using same chat for now, but can be different)
       await this.sendMessage({
-        chat_id: '-1002701066037', // Sales group chat ID
+        chat_id: salesChatId,
         text: salesMessage,
         parse_mode: 'HTML'
       });
 
       // Send to delivery group if it's a delivery order
-      if (orderData.deliveryMethod === 'delivery') {
+      if (orderData.deliveryMethod === 'delivery' && deliveryChatId) {
         await this.sendMessage({
-          chat_id: '-1002701066037', // Delivery group chat ID
+          chat_id: deliveryChatId,
           text: deliveryMessage,
           parse_mode: 'HTML'
         });
@@ -225,6 +225,7 @@ ${orderData.customerNotes ? `📝 <b>Notes:</b> ${orderData.customerNotes}\n` : 
       throw error;
     }
   }
+
   async notifyNewOrder(config: TelegramConfig, orderData: any): Promise<void> {
     const message = `
 🛍️ <b>New Order #${orderData.id}</b>
@@ -402,7 +403,5 @@ ${product.description}
   }
 }
 
-// Default instance using the provided bot token
-export const telegramService = new TelegramService("7141155447:AAGU2K74kX3ICzSIPB566tly3LUDo423JrU");
-
+export { TelegramService };
 export default TelegramService;

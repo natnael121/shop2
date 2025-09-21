@@ -4,8 +4,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { useOrders } from '../../hooks/useOrders';
 import { Order, OrderStatus } from '../../types';
 import { format } from 'date-fns';
-import { telegramService } from '../../services/telegram';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { TelegramService } from '../../services/telegram';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 
 interface OrderManagementProps {
@@ -30,12 +30,35 @@ export const OrderManagement: React.FC<OrderManagementProps> = ({ selectedShopId
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [departments, setDepartments] = useState<Department[]>([]);
   const [processingOrders, setProcessingOrders] = useState<Set<string>>(new Set());
+  const [telegramBotToken, setTelegramBotToken] = useState<string | null>(null);
+  const [telegram, setTelegram] = useState<TelegramService | null>(null);
 
   useEffect(() => {
     if (user?.uid && selectedShopId) {
       loadDepartments();
+      loadBotToken();
     }
   }, [user?.uid, selectedShopId]);
+
+  useEffect(() => {
+    if (telegramBotToken) {
+      setTelegram(new TelegramService(telegramBotToken));
+    }
+  }, [telegramBotToken]);
+
+  const loadBotToken = async () => {
+    if (!user?.uid) return;
+    
+    try {
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        setTelegramBotToken(userData.telegramBotToken || null);
+      }
+    } catch (error) {
+      console.error('Error loading bot token:', error);
+    }
+  };
 
   const loadDepartments = async () => {
     if (!user?.uid) return;
@@ -71,7 +94,18 @@ export const OrderManagement: React.FC<OrderManagementProps> = ({ selectedShopId
       if (order) {
         if (action === 'approve') {
           // Send to sales and delivery groups
-          await telegramService.sendApprovedOrderToGroups(order);
+          if (telegram) {
+            const salesDept = departments.find(d => d.role === 'cashier');
+            const deliveryDept = departments.find(d => d.role === 'admin');
+            
+            if (salesDept?.telegramChatId) {
+              await telegram.sendApprovedOrderToGroups(
+                order, 
+                salesDept.telegramChatId,
+                deliveryDept?.telegramChatId
+              );
+            }
+          }
         }
         await sendTelegramNotification(order, action, status);
       }
@@ -93,6 +127,8 @@ export const OrderManagement: React.FC<OrderManagementProps> = ({ selectedShopId
   };
 
   const sendTelegramNotification = async (order: Order, action: 'approve' | 'reject', status: OrderStatus) => {
+    if (!telegram) return;
+    
     try {
       const cashierDept = departments.find(d => d.role === 'cashier');
       const adminDept = departments.find(d => d.role === 'admin');
@@ -121,7 +157,7 @@ ${itemsList}
 <i>Order is now being processed</i>
           `.trim();
 
-          await telegramService.sendMessage({
+          await telegram.sendMessage({
             chat_id: cashierDept.telegramChatId,
             text: approvalMessage,
             parse_mode: 'HTML'
@@ -138,7 +174,7 @@ Total: $${order.total.toFixed(2)}
 Status: ${status.toUpperCase()}
           `.trim();
 
-          await telegramService.sendMessage({
+          await telegram.sendMessage({
             chat_id: adminDept.telegramChatId,
             text: adminMessage,
             parse_mode: 'HTML'
@@ -170,7 +206,7 @@ ${itemsList}
 
         for (const chatId of chatIds) {
           if (chatId) {
-            await telegramService.sendMessage({
+            await telegram.sendMessage({
               chat_id: chatId,
               text: rejectionMessage,
               parse_mode: 'HTML'
@@ -557,6 +593,7 @@ ${itemsList}
           onClose={() => setSelectedOrder(null)}
           onUpdateStatus={(orderId, status) => handleOrderAction(orderId, 'approve', status)}
           departments={departments}
+          telegram={telegram}
         />
       )}
     </div>
@@ -569,17 +606,24 @@ interface OrderDetailModalProps {
   onClose: () => void;
   onUpdateStatus: (orderId: string, status: OrderStatus) => void;
   departments: Department[];
+  telegram: TelegramService | null;
 }
 
 const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ 
   order, 
   onClose, 
   onUpdateStatus, 
-  departments 
+  departments,
+  telegram
 }) => {
   const statusOptions: OrderStatus[] = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
 
   const sendTestNotification = async () => {
+    if (!telegram) {
+      alert('Telegram integration not configured');
+      return;
+    }
+    
     try {
       const cashierDept = departments.find(d => d.role === 'cashier');
       if (!cashierDept?.telegramChatId) {
@@ -597,7 +641,7 @@ Status: ${order.status.toUpperCase()}
 ⏰ Sent at: ${new Date().toLocaleString()}
       `.trim();
 
-      await telegramService.sendMessage({
+      await telegram.sendMessage({
         chat_id: cashierDept.telegramChatId,
         text: testMessage,
         parse_mode: 'HTML'

@@ -1,12 +1,14 @@
 import React, { useState, useRef } from 'react';
 import { X, Upload, Camera, Check, Banknote, Smartphone } from 'lucide-react';
 import { OrderItem } from '../types';
-import { telegramService } from '../services/telegram';
+import { TelegramService } from '../services/telegram';
 
 interface PaymentModalProps {
   items: OrderItem[];
   totalAmount: number;
   tableNumber: string;
+  botToken: string | null;
+  paymentChatId: string | null;
   onClose: () => void;
   onPaymentSubmit: (paymentData: { screenshotUrl: string; method: string }) => void | Promise<void>;
 }
@@ -15,6 +17,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   items,
   totalAmount,
   tableNumber,
+  botToken,
+  paymentChatId,
   onClose,
   onPaymentSubmit,
 }) => {
@@ -35,7 +39,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   };
 
   const handleSubmit = async () => {
-    if (!selectedFile) return;
+    if (!selectedFile || !botToken || !paymentChatId) {
+      if (!selectedFile) {
+        alert('Please select a payment proof image');
+      } else {
+        alert('Telegram integration not configured');
+      }
+      return;
+    }
+    
     setIsSubmitting(true);
     try {
       // Upload screenshot to ImgBB
@@ -43,13 +55,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       const screenshotUrl = await imgbbService.uploadImage(selectedFile, `payment_${Date.now()}`);
 
       // Send payment proof to Telegram
-      await telegramService.sendPaymentProof({
+      const telegram = new TelegramService(botToken);
+      await telegram.sendPaymentProof({
         screenshotUrl,
         method: paymentMethod,
         tableNumber,
         totalAmount,
         items
-      });
+      }, paymentChatId);
 
       await onPaymentSubmit({ screenshotUrl, method: paymentMethod });
       onClose();

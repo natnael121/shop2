@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, addDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Product, Shop, TableBill, OrderItem } from '../types';
 import { BottomNav } from '../components/BottomNav';
@@ -11,6 +11,7 @@ import { AboutModal } from '../components/AboutModal';
 import { TableHeader } from '../components/TableHeader';
 import { MenuCard } from '../components/MenuCard';
 import { MenuDetail } from '../components/MenuDetail';
+import { TelegramService } from '../services/telegram';
 import { 
   ShoppingCart, 
   Search, 
@@ -64,6 +65,12 @@ export default function CatalogPage({}: CatalogPageProps) {
   // Table and bill state
   const [tableNumber] = useState('1'); // This could be dynamic based on URL params
   const [tableBill, setTableBill] = useState<TableBill | null>(null);
+  
+  // Telegram integration state
+  const [telegramBotToken, setTelegramBotToken] = useState<string | null>(null);
+  const [approvalChatId, setApprovalChatId] = useState<string | null>(null);
+  const [billChatId, setBillChatId] = useState<string | null>(null);
+  const [paymentChatId, setPaymentChatId] = useState<string | null>(null);
 
   // Business info for about modal
   const businessInfo = {
@@ -96,6 +103,12 @@ export default function CatalogPage({}: CatalogPageProps) {
       loadShopAndProducts();
     }
   }, [shopName]);
+
+  useEffect(() => {
+    if (shop?.ownerId) {
+      loadTelegramConfig();
+    }
+  }, [shop?.ownerId, shop?.id]);
 
   useEffect(() => {
     filterAndSortProducts();
@@ -186,6 +199,41 @@ export default function CatalogPage({}: CatalogPageProps) {
       setError('Failed to load shop catalog');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadTelegramConfig = async () => {
+    if (!shop?.ownerId) return;
+    
+    try {
+      // Fetch bot token from user document
+      const userDoc = await getDoc(doc(db, 'users', shop.ownerId));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        setTelegramBotToken(userData.telegramBotToken || null);
+      }
+
+      // Fetch department chat IDs
+      const departmentsQuery = query(
+        collection(db, 'departments'),
+        where('userId', '==', shop.ownerId),
+        where('shopId', '==', shop.id)
+      );
+      
+      const departmentsSnapshot = await getDocs(departmentsQuery);
+      const departments = departmentsSnapshot.docs.map(doc => doc.data());
+      
+      // Find relevant chat IDs
+      const cashierDept = departments.find(d => d.role === 'cashier');
+      const adminDept = departments.find(d => d.role === 'admin');
+      
+      // Set chat IDs for different purposes
+      setApprovalChatId(cashierDept?.telegramChatId || adminDept?.telegramChatId || null);
+      setBillChatId(cashierDept?.telegramChatId || adminDept?.telegramChatId || null);
+      setPaymentChatId(cashierDept?.telegramChatId || adminDept?.telegramChatId || null);
+      
+    } catch (error) {
+      console.error('Error loading Telegram config:', error);
     }
   };
 
@@ -281,9 +329,6 @@ export default function CatalogPage({}: CatalogPageProps) {
     customerNotes?: string;
   }) => {
     try {
-      // Import the orders hook to create the order
-      const { createPendingOrder } = await import('../hooks/useOrders');
-      
       // Create order data
       const orderData: any = {
         shopId: shop!.id,
@@ -310,11 +355,7 @@ export default function CatalogPage({}: CatalogPageProps) {
         orderData.customerNotes = orderDetails.customerNotes;
       }
 
-      // Create the order in database
-      // Note: We'll need to create this order directly since we can't use the hook here
-      const { db } = await import('../lib/firebase');
-      const { addDoc, collection } = await import('firebase/firestore');
-      
+      // Create the order in database      
       const docRef = await addDoc(collection(db, 'orders'), {
         ...orderData,
         status: 'pending',
@@ -327,8 +368,10 @@ export default function CatalogPage({}: CatalogPageProps) {
       const orderWithId = { ...orderData, id: docRef.id };
 
       // Send order to Telegram for admin approval
-      const { telegramService } = await import('../services/telegram');
-      await telegramService.sendOrderForApproval(orderWithId);
+      if (telegramBotToken && approvalChatId) {
+        const telegram = new TelegramService(telegramBotToken);
+        await telegram.sendOrderForApproval(orderWithId, approvalChatId);
+      }
 
       // Clear cart and show success message
       setCartItems([]);
@@ -341,17 +384,20 @@ export default function CatalogPage({}: CatalogPageProps) {
   };
 
   const handleWaiterCall = () => {
-    // Send waiter call to Telegram
-    const { telegramService } = require('../services/telegram');
-    telegramService.sendMessage({
-      chat_id: '-1002701066037',
-      text: `🔔 <b>Waiter Call</b>\n\nTable ${tableNumber} is requesting assistance.\n\n⏰ ${new Date().toLocaleString()}`,
-      parse_mode: 'HTML'
-    }).then(() => {
-      alert('Waiter has been called!');
-    }).catch(() => {
-      alert('Failed to call waiter. Please try again.');
-    });
+    if (telegramBotToken && approvalChatId) {
+      const telegram = new TelegramService(telegramBotToken);
+      telegram.sendMessage({
+        chat_id: approvalChatId,
+        text: `🔔 <b>Waiter Call</b>\n\nTable ${tableNumber} is requesting assistance.\n\n⏰ ${new Date().toLocaleString()}`,
+        parse_mode: 'HTML'
+      }).then(() => {
+        alert('Waiter has been called!');
+      }).catch(() => {
+        alert('Failed to call waiter. Please try again.');
+      });
+    } else {
+      alert('Telegram integration not configured. Please contact the restaurant.');
+    }
   };
 
   const handleBillClick = () => {
@@ -573,6 +619,8 @@ export default function CatalogPage({}: CatalogPageProps) {
           tableBill={tableBill}
           tableNumber={tableNumber}
           businessName={shop.name}
+          botToken={telegramBotToken}
+          billChatId={billChatId}
           onClose={() => setShowBill(false)}
           onPaymentOrder={handlePaymentOrder}
         />
@@ -584,6 +632,8 @@ export default function CatalogPage({}: CatalogPageProps) {
           items={tableBill.items}
           totalAmount={tableBill.total}
           tableNumber={tableNumber}
+          botToken={telegramBotToken}
+          paymentChatId={paymentChatId}
           onClose={() => setShowPayment(false)}
           onPaymentSubmit={handlePaymentSubmit}
         />

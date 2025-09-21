@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, X, Save, MessageSquare, TestTube } from 'lucide-react';
-import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, deleteDoc, getDoc } from 'firebase/firestore';
 import { useAuth } from '../../hooks/useAuth';
 import { db } from '../../lib/firebase';
-import { telegramService } from '../../services/telegram';
+import { TelegramService } from '../../services/telegram';
 
 interface Department {
   id: string;
@@ -29,9 +29,13 @@ const DepartmentManagement: React.FC<DepartmentManagementProps> = ({ selectedSho
   const [loading, setLoading] = useState(true);
   const [showAddDepartment, setShowAddDepartment] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
+  const [telegramBotToken, setTelegramBotToken] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.uid) return;
+
+    // Load bot token
+    loadBotToken();
 
     const q = query(
       collection(db, 'departments'),
@@ -54,6 +58,20 @@ const DepartmentManagement: React.FC<DepartmentManagementProps> = ({ selectedSho
     return unsubscribe;
   }, [user?.uid, selectedShopId]);
 
+  const loadBotToken = async () => {
+    if (!user?.uid) return;
+    
+    try {
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        setTelegramBotToken(userData.telegramBotToken || null);
+      }
+    } catch (error) {
+      console.error('Error loading bot token:', error);
+    }
+  };
+
   const handleDeleteDepartment = async (id: string) => {
     if (!confirm('Are you sure you want to delete this department?')) return;
     
@@ -66,14 +84,15 @@ const DepartmentManagement: React.FC<DepartmentManagementProps> = ({ selectedSho
   };
 
   const testTelegramConnection = async (chatId: string, departmentName: string) => {
-    if (!chatId) {
+    if (!chatId || !telegramBotToken) {
       alert('Please enter a Telegram Chat ID first');
       return;
     }
 
     try {
       // Send a test message using the telegram service
-      await telegramService.sendMessage({
+      const telegram = new TelegramService(telegramBotToken);
+      await telegram.sendMessage({
         chat_id: chatId,
         text: `🧪 Test message from ${departmentName} department!\n\nThis is a test to verify the Telegram connection is working properly.`,
         parse_mode: 'HTML'

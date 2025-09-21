@@ -1,12 +1,14 @@
 import React from 'react';
 import { X, Receipt, CreditCard } from 'lucide-react';
 import { TableBill, OrderItem } from '../types';
-import { telegramService } from '../services/telegram';
+import { TelegramService } from '../services/telegram';
 
 interface BillModalProps {
   tableBill: TableBill | null;
   tableNumber: string;
   businessName: string;
+  botToken: string | null;
+  billChatId: string | null;
   userId?: string;
   onClose: () => void;
   onPaymentOrder: () => void;
@@ -16,6 +18,8 @@ export const BillModal: React.FC<BillModalProps> = ({
   tableBill,
   tableNumber,
   businessName,
+  botToken,
+  billChatId,
   userId,
   onClose,
   onPaymentOrder,
@@ -23,7 +27,10 @@ export const BillModal: React.FC<BillModalProps> = ({
   const billRef = React.useRef<HTMLDivElement>(null);
 
   const sendBillToTelegram = async () => {
-    if (!tableBill || !billRef.current) return;
+    if (!tableBill || !billRef.current || !botToken || !billChatId) {
+      alert('Telegram integration not configured');
+      return;
+    }
 
     try {
       // Import html2canvas dynamically
@@ -47,10 +54,12 @@ export const BillModal: React.FC<BillModalProps> = ({
         const imageUrl = await imgbbService.uploadImage(file, `bill_table_${tableNumber}_${Date.now()}`);
         
         // Send to Telegram
-        await telegramService.sendBillPhoto(
+        const telegram = new TelegramService(botToken);
+        await telegram.sendBillPhoto(
           imageUrl,
           tableNumber,
           tableBill.total,
+          billChatId,
           userId
         );
         
