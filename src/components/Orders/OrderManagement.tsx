@@ -219,28 +219,22 @@ ${itemsList}
     }
   };
 
+  const statusConfig = {
+    pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
+    payment_pending: { label: 'Payment Pending', color: 'bg-orange-100 text-orange-800', icon: Clock },
+    confirmed: { label: 'Confirmed', color: 'bg-blue-100 text-blue-800', icon: CheckCircle },
+    processing: { label: 'Processing', color: 'bg-orange-100 text-orange-800', icon: Package },
+    shipped: { label: 'Shipped', color: 'bg-indigo-100 text-indigo-800', icon: Truck },
+    delivered: { label: 'Delivered', color: 'bg-green-100 text-green-800', icon: CheckCircle },
+    cancelled: { label: 'Cancelled', color: 'bg-red-100 text-red-800', icon: XCircle }
+  };
+
   const getStatusColor = (status: OrderStatus) => {
-    switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'confirmed': return 'bg-blue-100 text-blue-800';
-      case 'processing': return 'bg-orange-100 text-orange-800';
-      case 'shipped': return 'bg-indigo-100 text-indigo-800';
-      case 'delivered': return 'bg-green-100 text-green-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+    return statusConfig[status]?.color || 'bg-gray-100 text-gray-800';
   };
 
   const getStatusIcon = (status: OrderStatus) => {
-    switch (status) {
-      case 'pending': return Clock;
-      case 'confirmed': return CheckCircle;
-      case 'processing': return Package;
-      case 'shipped': return Truck;
-      case 'delivered': return CheckCircle;
-      case 'cancelled': return XCircle;
-      default: return AlertCircle;
-    }
+    return statusConfig[status]?.icon || AlertCircle;
   };
 
   const filteredOrders = orders.filter(order => {
@@ -352,9 +346,9 @@ ${itemsList}
         <div className="bg-white rounded-lg shadow-sm border p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Pending</p>
+              <p className="text-sm font-medium text-gray-600">Pending Orders</p>
               <p className="text-2xl font-bold text-yellow-600">
-                {orders.filter(o => o.status === 'pending').length}
+                {orders.filter(o => ['pending', 'payment_pending'].includes(o.status)).length}
               </p>
             </div>
             <Clock className="h-8 w-8 text-yellow-500" />
@@ -399,6 +393,7 @@ ${itemsList}
           >
             <option value="all">All Status</option>
             <option value="pending">Pending</option>
+            <option value="payment_pending">Payment Pending</option>
             <option value="confirmed">Confirmed</option>
             <option value="processing">Processing</option>
             <option value="shipped">Shipped</option>
@@ -523,6 +518,31 @@ ${itemsList}
                               disabled={isProcessing}
                               className="text-red-600 hover:text-red-900 p-1 rounded disabled:opacity-50"
                               title="Reject Order"
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+                        
+                        {order.status === 'payment_pending' && (
+                          <>
+                            <button
+                              onClick={() => handleOrderAction(order.id, 'approve', 'confirmed')}
+                              disabled={isProcessing}
+                              className="text-green-600 hover:text-green-900 p-1 rounded disabled:opacity-50"
+                              title="Confirm Payment & Approve"
+                            >
+                              {isProcessing ? (
+                                <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <CheckCircle className="w-4 h-4" />
+                              )}
+                            </button>
+                            <button
+                              onClick={() => handleOrderAction(order.id, 'reject', 'cancelled')}
+                              disabled={isProcessing}
+                              className="text-red-600 hover:text-red-900 p-1 rounded disabled:opacity-50"
+                              title="Reject Payment"
                             >
                               <XCircle className="w-4 h-4" />
                             </button>

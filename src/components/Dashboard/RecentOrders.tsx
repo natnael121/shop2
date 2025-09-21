@@ -11,6 +11,7 @@ interface RecentOrdersProps {
 
 const statusConfig = {
   pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
+  payment_pending: { label: 'Payment Pending', color: 'bg-orange-100 text-orange-800', icon: Clock },
   confirmed: { label: 'Confirmed', color: 'bg-blue-100 text-blue-800', icon: CheckCircle },
   processing: { label: 'Processing', color: 'bg-purple-100 text-purple-800', icon: Package },
   shipped: { label: 'Shipped', color: 'bg-indigo-100 text-indigo-800', icon: Truck },
@@ -86,6 +87,7 @@ export default function RecentOrders({ orders, onUpdateStatus }: RecentOrdersPro
                       className="text-xs border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="pending">Pending</option>
+                      <option value="payment_pending">Payment Pending</option>
                       <option value="confirmed">Confirmed</option>
                       <option value="processing">Processing</option>
                       <option value="shipped">Shipped</option>
