@@ -61,7 +61,7 @@ export const CartModal: React.FC<CartModalProps> = ({
         deliveryMethod,
         deliveryAddress: deliveryMethod === 'delivery' ? deliveryAddress.trim() : undefined,
         paymentPreference,
-        customerNotes: customerNotes.trim() || undefined,
+        customerNotes: customerNotes.trim(),
       });
       onClose();
     } catch (error) {
