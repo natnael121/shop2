@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, Plus, Minus, Trash2, User, MapPin, CreditCard, Truck, Package, ArrowRight } from 'lucide-react';
-import { imgbbService } from '../../services/imgbb';
+
 
 // Define OrderItem interface for this component
 interface OrderItem {
