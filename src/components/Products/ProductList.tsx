@@ -285,12 +285,14 @@ export default function ProductList({
         selectedShopId={selectedShopId}
       />
 
-          onCreateProduct={onCreateProduct}
-        <EditProductModal
-          product={editingProduct}
-          onClose={() => setEditingProduct(null)}
-          onSubmit={handleUpdateProduct}
-          selectedShopId={selectedShopId}
+         {editingProduct && (
+  <EditProductModal
+    product={editingProduct}
+    onClose={() => setEditingProduct(null)}
+    onSubmit={handleUpdateProduct}
+    selectedShopId={selectedShopId}
+  
+
         />
       )
     </div>
