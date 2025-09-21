@@ -160,6 +160,44 @@ ${orderData.customerNotes ? `📝 <b>Notes:</b> ${orderData.customerNotes}\n` : 
     }
   }
 
+  async sendPaymentConfirmationOrder(orderData: any, chatId: string): Promise<void> {
+    try {
+      const itemsList = orderData.items.map((item: any) => 
+        `• ${item.productName} × ${item.quantity} = $${item.total.toFixed(2)}`
+      ).join('\n');
+
+      const message = `
+💳 <b>Payment Confirmation Required</b>
+
+📋 Order ID: #${orderData.id.slice(-6)}
+👤 Customer: ${orderData.customerName}
+📞 Table/Contact: ${orderData.tableNumber}
+🚚 Method: ${orderData.deliveryMethod === 'delivery' ? '🚚 Delivery' : '📦 Pickup'}
+${orderData.deliveryAddress ? `📍 Address: ${orderData.deliveryAddress}` : ''}
+💳 Payment: ${orderData.paymentPreference === 'bank_transfer' ? 'Bank Transfer' : 'Mobile Money'}
+💰 Total: $${orderData.total.toFixed(2)}
+
+📦 <b>Items:</b>
+${itemsList}
+
+${orderData.customerNotes ? `📝 <b>Notes:</b> ${orderData.customerNotes}\n` : ''}
+⏰ Ordered: ${new Date().toLocaleString()}
+
+⚠️ <b>Customer has confirmed payment completion</b>
+<i>Please verify payment and approve order</i>
+      `.trim();
+
+      await this.sendMessage({
+        chat_id: chatId,
+        text: message,
+        parse_mode: 'HTML'
+      });
+    } catch (error) {
+      console.error('Failed to send payment confirmation order:', error);
+      throw error;
+    }
+  }
+
   async sendApprovedOrderToGroups(orderData: any, salesChatId: string, deliveryChatId?: string): Promise<void> {
     try {
       const itemsList = orderData.items.map((item: any) => 

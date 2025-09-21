@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, User, Store, Bell, Shield, Palette, Globe, Save, Eye, EyeOff } from 'lucide-react';
+import { Settings, User, Store, Bell, Shield, Palette, Globe, Save, Eye, EyeOff, Info, Plus, Trash2 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { Shop } from '../../types';
+import { Shop, BusinessInfo } from '../../types';
 
 interface SettingsPanelProps {
   selectedShop?: Shop;

@@ -327,6 +327,7 @@ export default function CatalogPage({}: CatalogPageProps) {
     deliveryAddress?: string;
     paymentPreference: string;
     customerNotes?: string;
+    requiresPaymentConfirmation?: boolean;
   }) => {
     try {
       // Create order data
@@ -358,8 +359,9 @@ export default function CatalogPage({}: CatalogPageProps) {
       // Create the order in database      
       const docRef = await addDoc(collection(db, 'orders'), {
         ...orderData,
-        status: 'pending',
-        paymentStatus: 'pending',
+        status: orderDetails.requiresPaymentConfirmation ? 'payment_pending' : 'pending',
+        paymentStatus: orderDetails.requiresPaymentConfirmation ? 'confirmation_required' : 'pending',
+        requiresPaymentConfirmation: orderDetails.requiresPaymentConfirmation || false,
         createdAt: new Date(),
         updatedAt: new Date()
       });
@@ -370,13 +372,22 @@ export default function CatalogPage({}: CatalogPageProps) {
       // Send order to Telegram for admin approval
       if (telegramBotToken && approvalChatId) {
         const telegram = new TelegramService(telegramBotToken);
-        await telegram.sendOrderForApproval(orderWithId, approvalChatId);
+        if (orderDetails.requiresPaymentConfirmation) {
+          await telegram.sendPaymentConfirmationOrder(orderWithId, approvalChatId);
+        } else {
+          await telegram.sendOrderForApproval(orderWithId, approvalChatId);
+        }
       }
 
       // Clear cart and show success message
       setCartItems([]);
       setShowCart(false);
-      alert('Order submitted for approval! You will be notified once it\'s reviewed.');
+      
+      if (orderDetails.requiresPaymentConfirmation) {
+        alert('Order submitted with payment confirmation! Please wait for approval after payment verification.');
+      } else {
+        alert('Order submitted for approval! You will be notified once it\'s reviewed.');
+      }
     } catch (error) {
       console.error('Error placing order:', error);
       throw error;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Plus, Minus, Trash2, User, MapPin, CreditCard, Truck, Package } from 'lucide-react';
+import { X, Plus, Minus, Trash2, User, MapPin, CreditCard, Truck, Package, ArrowRight } from 'lucide-react';
 
 // Define OrderItem interface for this component
 interface OrderItem {
@@ -23,6 +23,7 @@ interface CartModalProps {
     deliveryAddress?: string;
     paymentPreference: string;
     customerNotes: string;
+    requiresPaymentConfirmation?: boolean;
   }) => void;
 }
 
@@ -42,6 +43,7 @@ export const CartModal: React.FC<CartModalProps> = ({
   const [paymentPreference, setPaymentPreference] = React.useState('cash');
   const [customerNotes, setCustomerNotes] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [showPaymentConfirmation, setShowPaymentConfirmation] = React.useState(false);
 
   const handlePlaceOrder = async () => {
     if (!customerName.trim()) {
@@ -54,6 +56,15 @@ export const CartModal: React.FC<CartModalProps> = ({
       return;
     }
 
+    // Check if payment method requires confirmation
+    const requiresConfirmation = paymentPreference === 'bank_transfer' || paymentPreference === 'mobile_money';
+    
+    if (requiresConfirmation) {
+      // Show payment confirmation instead of placing order directly
+      setShowPaymentConfirmation(true);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await onPlaceOrder({
@@ -62,6 +73,27 @@ export const CartModal: React.FC<CartModalProps> = ({
         deliveryAddress: deliveryMethod === 'delivery' ? deliveryAddress.trim() : undefined,
         paymentPreference,
         customerNotes: customerNotes.trim(),
+        requiresPaymentConfirmation: false,
+      });
+      onClose();
+    } catch (error) {
+      console.error('Error placing order:', error);
+      alert('Failed to place order. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handlePaymentConfirmation = async () => {
+    setIsSubmitting(true);
+    try {
+      await onPlaceOrder({
+        customerName: customerName.trim(),
+        deliveryMethod,
+        deliveryAddress: deliveryMethod === 'delivery' ? deliveryAddress.trim() : undefined,
+        paymentPreference,
+        customerNotes: customerNotes.trim(),
+        requiresPaymentConfirmation: true,
       });
       onClose();
     } catch (error) {
@@ -88,6 +120,108 @@ export const CartModal: React.FC<CartModalProps> = ({
       alert('Geolocation is not supported by this browser.');
     }
   };
+
+  if (showPaymentConfirmation) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div className="bg-gray-900 w-full max-w-md max-h-[90vh] rounded-2xl overflow-hidden animate-slide-up flex flex-col shadow-xl">
+          <div className="flex items-center justify-between p-4 border-b border-gray-800">
+            <h2 className="text-lg font-bold text-white">Payment Confirmation</h2>
+            <button
+              onClick={() => setShowPaymentConfirmation(false)}
+              className="p-2 hover:bg-gray-800 rounded-full transition-colors"
+            >
+              <X className="w-5 h-5 text-gray-300" />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* Order Summary */}
+            <div className="bg-gray-800 p-4 rounded-lg">
+              <h3 className="text-white font-semibold mb-3">Order Summary</h3>
+              <div className="space-y-2 text-sm">
+                {items.slice(0, 3).map((item) => (
+                  <div key={item.id} className="flex justify-between text-gray-300">
+                    <span>{item.name} × {item.quantity}</span>
+                    <span>${item.total.toFixed(2)}</span>
+                  </div>
+                ))}
+                {items.length > 3 && (
+                  <div className="text-gray-400 text-xs">
+                    +{items.length - 3} more items
+                  </div>
+                )}
+                <div className="border-t border-gray-700 pt-2 mt-2 flex justify-between font-bold text-yellow-400">
+                  <span>Total</span>
+                  <span>${totalAmount.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Instructions */}
+            <div className="bg-blue-900/30 border border-blue-700 p-4 rounded-lg">
+              <h3 className="text-blue-300 font-semibold mb-3">Payment Instructions</h3>
+              {paymentPreference === 'bank_transfer' ? (
+                <div className="space-y-2 text-sm text-blue-200">
+                  <p><span className="font-medium">Bank:</span> Example Bank</p>
+                  <p><span className="font-medium">Account:</span> 123-456-789</p>
+                  <p><span className="font-medium">Account Name:</span> Restaurant Name</p>
+                  <p><span className="font-medium">Reference:</span> {customerName} - Table {tableNumber}</p>
+                  <p><span className="font-medium">Amount:</span> ${totalAmount.toFixed(2)}</p>
+                </div>
+              ) : (
+                <div className="space-y-2 text-sm text-blue-200">
+                  <p><span className="font-medium">Service:</span> Telebirr / M-Birr</p>
+                  <p><span className="font-medium">Number:</span> +251-912-345-678</p>
+                  <p><span className="font-medium">Reference:</span> {customerName} - Table {tableNumber}</p>
+                  <p><span className="font-medium">Amount:</span> ${totalAmount.toFixed(2)}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Important Notice */}
+            <div className="bg-yellow-900/30 border border-yellow-700 p-4 rounded-lg">
+              <h4 className="text-yellow-300 font-semibold mb-2">Important Notice</h4>
+              <div className="text-sm text-yellow-200 space-y-1">
+                <p>• Complete the payment using the details above</p>
+                <p>• Your order will be sent for approval after confirmation</p>
+                <p>• Keep your payment receipt for verification</p>
+                <p>• You will be notified once your order is approved</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 border-t border-gray-800 bg-gray-800">
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowPaymentConfirmation(false)}
+                className="flex-1 bg-gray-700 text-white py-3 rounded-lg font-semibold hover:bg-gray-600 transition-colors"
+              >
+                Back to Order
+              </button>
+              <button
+                onClick={handlePaymentConfirmation}
+                disabled={isSubmitting}
+                className="flex-1 bg-yellow-400 text-gray-900 py-3 rounded-lg font-semibold hover:bg-yellow-300 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
+                    Confirming...
+                  </>
+                ) : (
+                  <>
+                    Confirm Payment Made
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (
