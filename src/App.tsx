@@ -12,6 +12,7 @@ import DashboardStats from './components/Dashboard/DashboardStats';
 import RecentOrders from './components/Dashboard/RecentOrders';
 import ShopList from './components/Shops/ShopList';
 import ProductList from './components/Products/ProductList';
+import { OrderManagement } from './components/Orders/OrderManagement';
 import DepartmentManagement from './components/Departments/DepartmentManagement';
 import SettingsPanel from './components/Settings/SettingsPanel';
 import { Shop } from './types';
@@ -147,10 +148,7 @@ function DashboardApp() {
           );
         }
         return (
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Orders</h2>
-            <RecentOrders orders={orders} onUpdateStatus={updateOrderStatus} />
-          </div>
+          <OrderManagement selectedShopId={selectedShop.id} />
         );
         
       case 'customers':

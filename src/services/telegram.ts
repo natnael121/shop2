@@ -149,6 +149,99 @@ ${itemsList}
     });
   }
 
+  async notifyOrderStatusChange(chatId: string, orderData: any, oldStatus: string, newStatus: string): Promise<void> {
+    const statusEmojis: { [key: string]: string } = {
+      pending: '⏳',
+      confirmed: '✅',
+      processing: '🔄',
+      shipped: '🚚',
+      delivered: '📦',
+      cancelled: '❌'
+    };
+
+    const message = `
+${statusEmojis[newStatus] || '📋'} <b>Order Status Updated</b>
+
+📋 Order: #${orderData.id.slice(-6)}
+👤 Customer: ${orderData.customerId}
+💰 Total: $${orderData.total.toFixed(2)}
+
+🔄 Status: ${oldStatus.toUpperCase()} → <b>${newStatus.toUpperCase()}</b>
+⏰ Updated: ${new Date().toLocaleString()}
+
+${newStatus === 'confirmed' ? '✅ <i>Order approved and ready for processing</i>' :
+  newStatus === 'processing' ? '🔄 <i>Order is being prepared</i>' :
+  newStatus === 'shipped' ? '🚚 <i>Order has been shipped</i>' :
+  newStatus === 'delivered' ? '📦 <i>Order delivered successfully</i>' :
+  newStatus === 'cancelled' ? '❌ <i>Order has been cancelled</i>' :
+  '<i>Order status updated</i>'}
+    `.trim();
+
+    await this.sendMessage({
+      chat_id: chatId,
+      text: message,
+      parse_mode: 'HTML'
+    });
+  }
+
+  async notifyOrderApproval(chatId: string, orderData: any): Promise<void> {
+    const itemsList = orderData.items.map((item: any) => 
+      `• ${item.productName} × ${item.quantity} = $${item.total.toFixed(2)}`
+    ).join('\n');
+
+    const message = `
+✅ <b>Order Approved</b>
+
+📋 Order ID: #${orderData.id.slice(-6)}
+👤 Customer: ${orderData.customerId}
+💰 Total: $${orderData.total.toFixed(2)}
+📅 Date: ${new Date(orderData.createdAt).toLocaleString()}
+
+📦 <b>Items:</b>
+${itemsList}
+
+🔄 Status: CONFIRMED
+⏰ Approved at: ${new Date().toLocaleString()}
+
+<i>Order is now being processed</i>
+    `.trim();
+
+    await this.sendMessage({
+      chat_id: chatId,
+      text: message,
+      parse_mode: 'HTML'
+    });
+  }
+
+  async notifyOrderRejection(chatId: string, orderData: any, reason?: string): Promise<void> {
+    const itemsList = orderData.items.map((item: any) => 
+      `• ${item.productName} × ${item.quantity} = $${item.total.toFixed(2)}`
+    ).join('\n');
+
+    const message = `
+❌ <b>Order Rejected</b>
+
+📋 Order ID: #${orderData.id.slice(-6)}
+👤 Customer: ${orderData.customerId}
+💰 Total: $${orderData.total.toFixed(2)}
+📅 Date: ${new Date(orderData.createdAt).toLocaleString()}
+
+📦 <b>Items:</b>
+${itemsList}
+
+${reason ? `📝 <b>Reason:</b> ${reason}\n` : ''}
+⏰ Rejected at: ${new Date().toLocaleString()}
+
+<i>Customer should be notified about the cancellation</i>
+    `.trim();
+
+    await this.sendMessage({
+      chat_id: chatId,
+      text: message,
+      parse_mode: 'HTML'
+    });
+  }
+
   async notifyPaymentReceived(config: TelegramConfig, orderData: any): Promise<void> {
     const message = `
 ✅ <b>Payment Confirmed</b>
