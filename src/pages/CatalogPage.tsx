@@ -71,32 +71,8 @@ export default function CatalogPage({}: CatalogPageProps) {
   const [approvalChatId, setApprovalChatId] = useState<string | null>(null);
   const [billChatId, setBillChatId] = useState<string | null>(null);
   const [paymentChatId, setPaymentChatId] = useState<string | null>(null);
+  const [businessInfo, setBusinessInfo] = useState<any>(null);
 
-  // Business info for about modal
-  const businessInfo = {
-    name: shop?.name || 'Restaurant',
-    description: shop?.description || 'Welcome to our restaurant! We serve delicious food with excellent service.',
-    address: '123 Main Street, City, Country',
-    phone: '+1-234-567-8900',
-    email: 'info@restaurant.com',
-    website: 'https://restaurant.com',
-    socialMedia: {
-      facebook: 'https://facebook.com/restaurant',
-      instagram: 'https://instagram.com/restaurant',
-      whatsapp: '+1234567890'
-    },
-    operatingHours: {
-      monday: '9:00 AM - 10:00 PM',
-      tuesday: '9:00 AM - 10:00 PM',
-      wednesday: '9:00 AM - 10:00 PM',
-      thursday: '9:00 AM - 10:00 PM',
-      friday: '9:00 AM - 11:00 PM',
-      saturday: '10:00 AM - 11:00 PM',
-      sunday: '10:00 AM - 10:00 PM'
-    },
-    features: ['Free WiFi', 'Fresh Food', 'Fast Service', 'Top Rated'],
-    specialMessage: 'Thank you for choosing us! We appreciate your business.'
-  };
 
   useEffect(() => {
     if (shopName) {
@@ -231,6 +207,36 @@ export default function CatalogPage({}: CatalogPageProps) {
       setApprovalChatId(cashierDept?.telegramChatId || adminDept?.telegramChatId || null);
       setBillChatId(cashierDept?.telegramChatId || adminDept?.telegramChatId || null);
       setPaymentChatId(cashierDept?.telegramChatId || adminDept?.telegramChatId || null);
+
+      // Load business info from shop document
+      const shopDoc = await getDoc(doc(db, 'shops', shop.id));
+      if (shopDoc.exists()) {
+        const shopData = shopDoc.data();
+        setBusinessInfo(shopData.businessInfo || {
+          name: shop?.name || 'Restaurant',
+          description: shop?.description || 'Welcome to our restaurant! We serve delicious food with excellent service.',
+          address: '123 Main Street, City, Country',
+          phone: '+1-234-567-8900',
+          email: 'info@restaurant.com',
+          website: 'https://restaurant.com',
+          socialMedia: {
+            facebook: 'https://facebook.com/restaurant',
+            instagram: 'https://instagram.com/restaurant',
+            whatsapp: '+1234567890'
+          },
+          operatingHours: {
+            monday: '9:00 AM - 10:00 PM',
+            tuesday: '9:00 AM - 10:00 PM',
+            wednesday: '9:00 AM - 10:00 PM',
+            thursday: '9:00 AM - 10:00 PM',
+            friday: '9:00 AM - 11:00 PM',
+            saturday: '10:00 AM - 11:00 PM',
+            sunday: '10:00 AM - 10:00 PM'
+          },
+          features: ['Free WiFi', 'Fresh Food', 'Fast Service', 'Top Rated'],
+          specialMessage: 'Thank you for choosing us! We appreciate your business.'
+        });
+      }
       
     } catch (error) {
       console.error('Error loading Telegram config:', error);
@@ -651,7 +657,7 @@ export default function CatalogPage({}: CatalogPageProps) {
       )}
 
       {/* About Modal */}
-      {showAbout && (
+      {showAbout && businessInfo && (
         <AboutModal
           businessInfo={businessInfo}
           language={language}

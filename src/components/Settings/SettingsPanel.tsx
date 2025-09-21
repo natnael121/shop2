@@ -69,6 +69,26 @@ export default function SettingsPanel({ selectedShop }: SettingsPanelProps) {
 
   const [showApiKey, setShowApiKey] = useState(false);
   const [telegramBotToken, setTelegramBotToken] = useState('');
+  const [businessInfo, setBusinessInfo] = useState<BusinessInfo>({
+    name: selectedShop?.name || '',
+    description: '',
+    address: '',
+    phone: '',
+    email: '',
+    website: '',
+    socialMedia: {},
+    operatingHours: {
+      monday: '9:00 AM - 10:00 PM',
+      tuesday: '9:00 AM - 10:00 PM',
+      wednesday: '9:00 AM - 10:00 PM',
+      thursday: '9:00 AM - 10:00 PM',
+      friday: '9:00 AM - 11:00 PM',
+      saturday: '10:00 AM - 11:00 PM',
+      sunday: '10:00 AM - 10:00 PM'
+    },
+    features: ['Free WiFi', 'Fresh Food', 'Fast Service', 'Top Rated'],
+    specialMessage: 'Thank you for choosing us! We appreciate your business.'
+  });
 
   useEffect(() => {
     loadUserSettings();
@@ -96,6 +116,9 @@ export default function SettingsPanel({ selectedShop }: SettingsPanelProps) {
         if (data.telegramBotToken) {
           setTelegramBotToken(data.telegramBotToken);
         }
+        if (data.businessInfo) {
+          setBusinessInfo({ ...businessInfo, ...data.businessInfo });
+        }
       }
     } catch (error) {
       console.error('Error loading user settings:', error);
@@ -111,6 +134,9 @@ export default function SettingsPanel({ selectedShop }: SettingsPanelProps) {
         const data = shopDoc.data();
         if (data.settings) {
           setShopSettings(data.settings);
+        }
+        if (data.businessInfo) {
+          setBusinessInfo({ ...businessInfo, ...data.businessInfo });
         }
       }
     } catch (error) {
@@ -158,8 +184,48 @@ export default function SettingsPanel({ selectedShop }: SettingsPanelProps) {
     }
   };
 
+  const saveBusinessInfo = async () => {
+    if (!selectedShop) return;
+    
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, 'shops', selectedShop.id), {
+        businessInfo: businessInfo,
+        updatedAt: new Date()
+      });
+      alert('Business information saved successfully!');
+    } catch (error) {
+      console.error('Error saving business info:', error);
+      alert('Failed to save business information');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addFeature = () => {
+    setBusinessInfo(prev => ({
+      ...prev,
+      features: [...(prev.features || []), '']
+    }));
+  };
+
+  const updateFeature = (index: number, value: string) => {
+    setBusinessInfo(prev => ({
+      ...prev,
+      features: prev.features?.map((feature, i) => i === index ? value : feature) || []
+    }));
+  };
+
+  const removeFeature = (index: number) => {
+    setBusinessInfo(prev => ({
+      ...prev,
+      features: prev.features?.filter((_, i) => i !== index) || []
+    }));
+  };
+
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
+    { id: 'business', label: 'About Us', icon: Info, disabled: !selectedShop },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'appearance', label: 'Appearance', icon: Palette },
     { id: 'shop', label: 'Shop Settings', icon: Store, disabled: !selectedShop },
@@ -290,6 +356,252 @@ export default function SettingsPanel({ selectedShop }: SettingsPanelProps) {
               >
                 <Save className="w-4 h-4" />
                 <span>{loading ? 'Saving...' : 'Save Changes'}</span>
+              </button>
+            </div>
+          </div>
+        );
+
+      case 'business':
+        if (!selectedShop) {
+          return (
+            <div className="text-center py-12">
+              <Store className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No Shop Selected</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Please select a shop to configure its business information.
+              </p>
+            </div>
+          );
+        }
+
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Business Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Business Name
+                  </label>
+                  <input
+                    type="text"
+                    value={businessInfo.name}
+                    onChange={(e) => setBusinessInfo(prev => ({ ...prev, name: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Your business name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={businessInfo.phone || ''}
+                    onChange={(e) => setBusinessInfo(prev => ({ ...prev, phone: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="+1-234-567-8900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    value={businessInfo.email || ''}
+                    onChange={(e) => setBusinessInfo(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="info@business.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Website
+                  </label>
+                  <input
+                    type="url"
+                    value={businessInfo.website || ''}
+                    onChange={(e) => setBusinessInfo(prev => ({ ...prev, website: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="https://yourbusiness.com"
+                  />
+                </div>
+              </div>
+              
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Business Description
+                </label>
+                <textarea
+                  rows={4}
+                  value={businessInfo.description || ''}
+                  onChange={(e) => setBusinessInfo(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Tell customers about your business..."
+                />
+              </div>
+
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Address
+                </label>
+                <textarea
+                  rows={2}
+                  value={businessInfo.address || ''}
+                  onChange={(e) => setBusinessInfo(prev => ({ ...prev, address: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="123 Main Street, City, Country"
+                />
+              </div>
+            </div>
+
+            {/* Social Media */}
+            <div>
+              <h4 className="text-md font-medium text-gray-900 mb-4">Social Media Links</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Facebook
+                  </label>
+                  <input
+                    type="url"
+                    value={businessInfo.socialMedia?.facebook || ''}
+                    onChange={(e) => setBusinessInfo(prev => ({ 
+                      ...prev, 
+                      socialMedia: { ...prev.socialMedia, facebook: e.target.value }
+                    }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="https://facebook.com/yourbusiness"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Instagram
+                  </label>
+                  <input
+                    type="url"
+                    value={businessInfo.socialMedia?.instagram || ''}
+                    onChange={(e) => setBusinessInfo(prev => ({ 
+                      ...prev, 
+                      socialMedia: { ...prev.socialMedia, instagram: e.target.value }
+                    }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="https://instagram.com/yourbusiness"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    WhatsApp
+                  </label>
+                  <input
+                    type="tel"
+                    value={businessInfo.socialMedia?.whatsapp || ''}
+                    onChange={(e) => setBusinessInfo(prev => ({ 
+                      ...prev, 
+                      socialMedia: { ...prev.socialMedia, whatsapp: e.target.value }
+                    }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="+1234567890"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Twitter
+                  </label>
+                  <input
+                    type="url"
+                    value={businessInfo.socialMedia?.twitter || ''}
+                    onChange={(e) => setBusinessInfo(prev => ({ 
+                      ...prev, 
+                      socialMedia: { ...prev.socialMedia, twitter: e.target.value }
+                    }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="https://twitter.com/yourbusiness"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Operating Hours */}
+            <div>
+              <h4 className="text-md font-medium text-gray-900 mb-4">Operating Hours</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {Object.entries(businessInfo.operatingHours || {}).map(([day, hours]) => (
+                  <div key={day}>
+                    <label className="block text-sm font-medium text-gray-700 mb-2 capitalize">
+                      {day}
+                    </label>
+                    <input
+                      type="text"
+                      value={hours}
+                      onChange={(e) => setBusinessInfo(prev => ({ 
+                        ...prev, 
+                        operatingHours: { ...prev.operatingHours, [day]: e.target.value }
+                      }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="9:00 AM - 10:00 PM"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Features */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-md font-medium text-gray-900">Business Features</h4>
+                <button
+                  onClick={addFeature}
+                  className="inline-flex items-center px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Feature
+                </button>
+              </div>
+              <div className="space-y-2">
+                {businessInfo.features?.map((feature, index) => (
+                  <div key={index} className="flex items-center space-x-2">
+                    <input
+                      type="text"
+                      value={feature}
+                      onChange={(e) => updateFeature(index, e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="e.g., Free WiFi, Fresh Food"
+                    />
+                    <button
+                      onClick={() => removeFeature(index)}
+                      className="p-2 text-red-600 hover:text-red-700 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Special Message */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Special Message
+              </label>
+              <textarea
+                rows={3}
+                value={businessInfo.specialMessage || ''}
+                onChange={(e) => setBusinessInfo(prev => ({ ...prev, specialMessage: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="A special message for your customers..."
+              />
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                onClick={saveBusinessInfo}
+                disabled={loading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2"
+              >
+                <Save className="w-4 h-4" />
+                <span>{loading ? 'Saving...' : 'Save Business Info'}</span>
               </button>
             </div>
           </div>
