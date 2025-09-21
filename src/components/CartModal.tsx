@@ -20,7 +20,6 @@ interface CartModalProps {
   onPlaceOrder: (orderDetails: {
     customerName: string;
     customerPhone: string;
-    customerPhone: string;
     deliveryMethod: 'pickup' | 'delivery';
     deliveryAddress?: string;
     paymentPreference: string;
@@ -72,6 +71,7 @@ export const CartModal: React.FC<CartModalProps> = ({
     try {
       await onPlaceOrder({
         customerName: customerName.trim(),
+        customerPhone: customerPhone.trim(),
         deliveryMethod,
         deliveryAddress: deliveryMethod === 'delivery' ? deliveryAddress.trim() : undefined,
         paymentPreference,
@@ -92,6 +92,7 @@ export const CartModal: React.FC<CartModalProps> = ({
     try {
       await onPlaceOrder({
         customerName: customerName.trim(),
+        customerPhone: customerPhone.trim(),
         deliveryMethod,
         deliveryAddress: deliveryMethod === 'delivery' ? deliveryAddress.trim() : undefined,
         paymentPreference,
