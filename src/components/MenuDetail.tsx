@@ -1,121 +1,247 @@
-import React, { useState } from "react";
-import { X } from "lucide-react";
-import { Product } from "../types";
+import React, { useState } from 'react';
+import { X, Plus, Minus, Package, AlertTriangle, Tag, Box } from 'lucide-react';
+import { Product } from '../types';
 
 interface MenuDetailProps {
   product: Product;
   onClose: () => void;
-  onAddToCart: (product: Product, quantity: number, size: string, color: string) => void;
+  onAddToCart: (product: Product, quantity: number) => void;
 }
 
-export const MenuDetail: React.FC<MenuDetailProps> = ({
-  product,
-  onClose,
-  onAddToCart,
-}) => {
+export const MenuDetail: React.FC<MenuDetailProps> = ({ product, onClose, onAddToCart }) => {
   const [quantity, setQuantity] = useState(1);
-  const [selectedSize, setSelectedSize] = useState<string>("43");
-  const [selectedColor, setSelectedColor] = useState<string>("magenta");
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const handleAddToCart = () => {
-    onAddToCart(product, quantity, selectedSize, selectedColor);
+    if (product.isActive && product.stock > 0) {
+      onAddToCart(product, quantity);
+      onClose();
+    }
   };
 
+  const incrementQuantity = () => {
+    setQuantity(prev => Math.min(prev + 1, product.stock));
+  };
+  
+  const decrementQuantity = () => {
+    setQuantity(prev => Math.max(1, prev - 1));
+  };
+
+  const isAvailable = product.isActive && product.stock > 0;
+  const isLowStock = product.stock <= product.lowStockAlert;
+  const images = product.images && product.images.length > 0 ? product.images : [];
+
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-3">
-      <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-xl">
-        {/* Image Section */}
-        <div className="relative">
-          <img
-            src={product.images?.[0]}
-            alt={product.name}
-            className="w-full object-cover"
-          />
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2">
+      <div className="bg-white w-full max-w-md max-h-[90vh] rounded-xl overflow-hidden animate-slide-up flex flex-col shadow-xl">
+        
+        {/* Image section */}
+        <div className="relative h-48">
+          {images.length > 0 ? (
+            <img
+              src={images[currentImageIndex]}
+              alt={product.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+              <Package className="w-16 h-16 text-gray-400" />
+            </div>
+          )}
+          
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 bg-black/50 p-2 rounded-full"
+            className="absolute top-2 right-2 bg-black/50 rounded-full p-1.5"
           >
-            <X className="w-5 h-5 text-white" />
+            <X className="w-4 h-4 text-white" />
           </button>
+
+          {/* Image navigation dots */}
+          {images.length > 1 && (
+            <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex space-x-1">
+              {images.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentImageIndex(index)}
+                  className={`w-2 h-2 rounded-full ${
+                    currentImageIndex === index ? 'bg-white' : 'bg-white/50'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Status badges */}
+          <div className="absolute top-2 left-2 flex flex-col space-y-1">
+            {product.category && (
+              <div className="bg-blue-600 rounded-full px-2 py-0.5">
+                <span className="text-white text-xs font-medium">
+                  {product.category}
+                </span>
+              </div>
+            )}
+            {isLowStock && isAvailable && (
+              <div className="bg-orange-500 rounded-full px-2 py-0.5">
+                <span className="text-white text-xs font-medium">
+                  Low Stock
+                </span>
+              </div>
+            )}
+            {!isAvailable && (
+              <div className="bg-red-500 rounded-full px-2 py-0.5">
+                <span className="text-white text-xs font-medium">
+                  {product.stock === 0 ? 'Out of Stock' : 'Unavailable'}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Content */}
-        <div className="p-5 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 text-sm">
+          {/* Title and basic info */}
           <div>
-            <h2 className="text-xl font-bold text-gray-900">{product.name}</h2>
-            <p className="text-gray-500 text-sm">{product.category}</p>
-          </div>
-
-          {/* Price */}
-          <div className="flex items-center space-x-3">
-            <span className="text-2xl font-bold text-blue-600">
-              ${product.price.toFixed(2)}
-            </span>
-            {product.estimatedPriceRange && (
-              <span className="text-gray-400 text-sm">
-                Est. Resell {product.estimatedPriceRange}
+            <h2 className="text-xl font-bold text-gray-900 mb-2">{product.name}</h2>
+            
+            {/* Price and stock info */}
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-2xl font-bold text-yellow-600">
+                ${product.price.toFixed(2)}
               </span>
-            )}
+              <div className="text-right">
+                <div className="text-gray-600 text-sm">
+                  {product.stock} in stock
+                </div>
+                {product.sku && (
+                  <div className="text-gray-500 text-xs">
+                    SKU: {product.sku}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Description */}
           {product.description && (
-            <p className="text-gray-600 text-sm leading-relaxed">
-              {product.description}
-            </p>
+            <div>
+              <h3 className="text-gray-900 font-semibold mb-2 flex items-center space-x-2">
+                <span>Description</span>
+              </h3>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                {product.description}
+              </p>
+            </div>
           )}
 
-          {/* Size & Color */}
-          <div className="flex space-x-4">
-            <div>
-              <label className="text-gray-700 text-sm font-medium">Size</label>
-              <select
-                className="mt-1 block w-20 border rounded-lg p-2 text-sm"
-                value={selectedSize}
-                onChange={(e) => setSelectedSize(e.target.value)}
-              >
-                <option value="41">41</option>
-                <option value="42">42</option>
-                <option value="43">43</option>
-                <option value="44">44</option>
-              </select>
+          {/* Product details */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Category */}
+            <div className="bg-gray-100 rounded-lg p-3">
+              <div className="flex items-center space-x-2 mb-1">
+                <Tag className="w-4 h-4 text-blue-500" />
+                <span className="text-gray-900 font-semibold text-xs">Category</span>
+              </div>
+              <span className="text-gray-700 text-sm">{product.category}</span>
             </div>
 
-            <div>
-              <label className="text-gray-700 text-sm font-medium">Color</label>
-              <select
-                className="mt-1 block w-24 border rounded-lg p-2 text-sm"
-                value={selectedColor}
-                onChange={(e) => setSelectedColor(e.target.value)}
-              >
-                <option value="magenta">Magenta</option>
-                <option value="blue">Blue</option>
-                <option value="black">Black</option>
-              </select>
+            {/* Stock Status */}
+            <div className="bg-gray-100 rounded-lg p-3">
+              <div className="flex items-center space-x-2 mb-1">
+                <Box className="w-4 h-4 text-green-500" />
+                <span className="text-gray-900 font-semibold text-xs">Stock</span>
+              </div>
+              <span className={`text-sm ${
+                product.stock > product.lowStockAlert ? 'text-green-600' : 
+                product.stock > 0 ? 'text-orange-600' : 'text-red-600'
+              }`}>
+                {product.stock > 0 ? `${product.stock} available` : 'Out of stock'}
+              </span>
             </div>
           </div>
 
-          {/* Quantity */}
-          <div>
-            <label className="text-gray-700 text-sm font-medium">Quantity</label>
-            <input
-              type="number"
-              className="mt-1 block w-20 border rounded-lg p-2 text-sm"
-              value={quantity}
-              min={1}
-              max={product.stock}
-              onChange={(e) => setQuantity(Number(e.target.value))}
-            />
-          </div>
+          {/* Subcategory if available */}
+          {product.subcategory && (
+            <div>
+              <h3 className="text-gray-900 font-semibold mb-1 text-sm">Subcategory</h3>
+              <span className="text-gray-600 text-sm">{product.subcategory}</span>
+            </div>
+          )}
+
+          {/* Low stock warning */}
+          {isLowStock && isAvailable && (
+            <div className="bg-orange-100 border border-orange-200 rounded-lg p-3">
+              <div className="flex items-center space-x-2">
+                <AlertTriangle className="w-4 h-4 text-orange-500" />
+                <span className="text-orange-600 text-sm font-medium">
+                  Only {product.stock} left in stock!
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Additional images preview */}
+          {images.length > 1 && (
+            <div>
+              <h3 className="text-gray-900 font-semibold mb-2 text-sm">More Images</h3>
+              <div className="grid grid-cols-4 gap-2">
+                {images.slice(1, 5).map((image, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentImageIndex(index + 1)}
+                    className="aspect-square rounded-lg overflow-hidden bg-gray-100 hover:opacity-80 transition-opacity"
+                  >
+                    <img
+                      src={image}
+                      alt={`${product.name} ${index + 2}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
-        <div className="p-5 border-t bg-gray-50">
+        <div className="p-4 border-t border-gray-200 bg-gray-50">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center bg-gray-100 rounded-lg">
+              <button
+                onClick={decrementQuantity}
+                className="p-2 hover:bg-gray-200 rounded-l-lg transition-colors"
+                disabled={!isAvailable}
+              >
+                <Minus className="w-4 h-4 text-gray-900" />
+              </button>
+              <span className="px-4 py-2 font-bold text-gray-900">{quantity}</span>
+              <button
+                onClick={incrementQuantity}
+                className="p-2 hover:bg-gray-200 rounded-r-lg transition-colors"
+                disabled={!isAvailable || quantity >= product.stock}
+              >
+                <Plus className="w-4 h-4 text-gray-900" />
+              </button>
+            </div>
+            <div className="text-right">
+              {quantity > 1 && (
+                <div className="text-gray-500 text-sm mb-1">
+                  ${product.price.toFixed(2)} × {quantity}
+                </div>
+              )}
+              <div className="text-xl font-bold text-yellow-600">
+                ${(product.price * quantity).toFixed(2)}
+              </div>
+            </div>
+          </div>
+
           <button
             onClick={handleAddToCart}
-            className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-500 transition"
+            disabled={!isAvailable}
+            className="w-full bg-yellow-400 text-gray-900 py-3 rounded-lg font-semibold hover:bg-yellow-300 transition-colors disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
           >
-            Add To Bag
+            {!product.isActive ? 'Product Unavailable' : 
+             product.stock === 0 ? 'Out of Stock' : 
+             'Add to Cart'}
           </button>
         </div>
       </div>
