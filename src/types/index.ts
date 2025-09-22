@@ -57,6 +57,8 @@ export interface Order {
   paymentStatus: 'pending' | 'paid' | 'refunded';
   paymentPreference?: string;
   tableNumber?: string;
+  telegramId?: string;
+  telegramUsername?: string;
   createdAt: Date;
   updatedAt: Date;
 }
