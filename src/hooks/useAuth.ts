@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { User, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 
 export function useAuth() {
@@ -34,6 +34,8 @@ export function useAuth() {
         uid: result.user.uid,
         email: result.user.email,
         displayName,
+        role: 'shop_admin',
+        userType: 'admin',
         createdAt: new Date(),
         updatedAt: new Date()
       });
