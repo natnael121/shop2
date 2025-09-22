@@ -11,8 +11,49 @@ interface TelegramConfig {
   deliveryGroupId: string;
 }
 
+interface UserCacheData {
+  telegram_id: number;
+  username?: string;
+  first_name?: string;
+  last_name?: string;
+  last_shop_id?: string;
+  shops: { [shopId: string]: { last_interacted: string } };
+  created_at: string;
+}
+
+interface ShopData {
+  id: string;
+  name: string;
+  description?: string;
+  isActive: boolean;
+  ownerId: string;
+}
+
+interface CategoryData {
+  id: string;
+  name: string;
+  description?: string;
+  icon: string;
+  order: number;
+  shopId: string;
+}
+
+interface ProductData {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  stock: number;
+  category: string;
+  images: string[];
+  isActive: boolean;
+  shopId: string;
+}
+
 class TelegramService {
   private botToken: string;
+  private userCache: Map<number, UserCacheData> = new Map();
+  private shopMembersCache: Map<string, Set<number>> = new Map();
 
   constructor(botToken: string) {
     this.botToken = botToken;
@@ -34,6 +75,505 @@ class TelegramService {
     } catch (error) {
       console.error('Failed to send Telegram message:', error);
       throw error;
+    }
+  }
+
+  // User Cache Management
+  async cacheUser(userData: UserCacheData): Promise<void> {
+    try {
+      this.userCache.set(userData.telegram_id, userData);
+      
+      // Also save to Firebase
+      const response = await fetch('/api/users/cache', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to cache user: ${response.status}`);
+      }
+      
+      console.log(`Cached user ${userData.telegram_id}`);
+    } catch (error) {
+      console.error('Error caching user:', error);
+      throw error;
+    }
+  }
+
+  getCachedUser(telegramId: number): UserCacheData | undefined {
+    return this.userCache.get(telegramId);
+  }
+
+  async updateUserShopInteraction(telegramId: number, shopId: string): Promise<void> {
+    try {
+      const now = new Date().toISOString();
+      
+      // Update cache
+      const cachedUser = this.userCache.get(telegramId);
+      if (cachedUser) {
+        cachedUser.last_shop_id = shopId;
+        if (!cachedUser.shops) {
+          cachedUser.shops = {};
+        }
+        cachedUser.shops[shopId] = { last_interacted: now };
+        this.userCache.set(telegramId, cachedUser);
+      }
+      
+      // Update Firebase
+      const response = await fetch('/api/users/shop-interaction', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          telegramId,
+          shopId,
+          timestamp: now
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to update shop interaction: ${response.status}`);
+      }
+      
+      console.log(`Updated shop interaction: user ${telegramId} -> shop ${shopId}`);
+    } catch (error) {
+      console.error('Error updating user shop interaction:', error);
+      throw error;
+    }
+  }
+
+  async getUserLastShop(telegramId: number): Promise<ShopData | null> {
+    try {
+      const cachedUser = this.userCache.get(telegramId);
+      
+      if (!cachedUser || !cachedUser.last_shop_id) {
+        return null;
+      }
+      
+      // Fetch shop data
+      const response = await fetch(`/api/shops/${cachedUser.last_shop_id}`);
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          return null;
+        }
+        throw new Error(`Failed to fetch shop: ${response.status}`);
+      }
+      
+      const shopData = await response.json();
+      return shopData;
+    } catch (error) {
+      console.error('Error getting user last shop:', error);
+      return null;
+    }
+  }
+
+  // Shop Member Cache Management
+  addShopMember(shopId: string, telegramId: number): void {
+    if (!this.shopMembersCache.has(shopId)) {
+      this.shopMembersCache.set(shopId, new Set());
+    }
+    this.shopMembersCache.get(shopId)!.add(telegramId);
+  }
+
+  getShopMembers(shopId: string): number[] {
+    const members = this.shopMembersCache.get(shopId);
+    return members ? Array.from(members) : [];
+  }
+
+  // Menu Navigation Methods
+  async sendShopMenu(chatId: string, shopData: ShopData): Promise<void> {
+    try {
+      const categories = await this.getShopCategories(shopData.id);
+      
+      let text = `🏪 **${shopData.name}**\n\n`;
+      
+      if (shopData.description) {
+        text += `${shopData.description}\n\n`;
+      }
+      
+      if (categories.length === 0) {
+        text += '❌ No categories available yet.';
+        
+        await this.sendMessage({
+          chat_id: chatId,
+          text,
+          parse_mode: 'Markdown'
+        });
+        return;
+      }
+      
+      text += '📂 Choose a category:';
+      
+      // Create inline keyboard
+      const keyboard = categories.map(category => [{
+        text: `${category.icon || '📦'} ${category.name}`,
+        callback_data: `category_${shopData.id}_${category.id}`
+      }]);
+      
+      keyboard.push([{
+        text: '🔄 Refresh Menu',
+        callback_data: `shop_${shopData.id}`
+      }]);
+      
+      const response = await fetch(`https://api.telegram.org/bot${this.botToken}/sendMessage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text,
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: keyboard
+          }
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Telegram API error: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Error sending shop menu:', error);
+      throw error;
+    }
+  }
+
+  async sendCategoryProducts(chatId: string, shopId: string, categoryId: string): Promise<void> {
+    try {
+      const category = await this.getCategoryData(categoryId);
+      const products = await this.getCategoryProducts(shopId, categoryId);
+      
+      if (!category) {
+        await this.sendMessage({
+          chat_id: chatId,
+          text: '❌ Category not found.',
+        });
+        return;
+      }
+      
+      let text = `📂 **${category.name}**\n\n`;
+      
+      if (category.description) {
+        text += `${category.description}\n\n`;
+      }
+      
+      if (products.length === 0) {
+        text += '❌ No products available in this category.';
+        
+        const keyboard = [[{
+          text: '⬅️ Back to Categories',
+          callback_data: `shop_${shopId}`
+        }]];
+        
+        const response = await fetch(`https://api.telegram.org/bot${this.botToken}/sendMessage`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: keyboard
+            }
+          }),
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Telegram API error: ${response.status}`);
+        }
+        return;
+      }
+      
+      text += '🛍️ Choose a product:';
+      
+      // Create product buttons
+      const keyboard = products
+        .filter(product => product.isActive && product.stock > 0)
+        .map(product => {
+          const priceText = `$${product.price.toFixed(2)}`;
+          const stockText = product.stock <= 10 ? ` (${product.stock} left)` : '';
+          
+          return [{
+            text: `${product.name} - ${priceText}${stockText}`,
+            callback_data: `product_${shopId}_${product.id}`
+          }];
+        });
+      
+      if (keyboard.length === 0) {
+        text = `📂 **${category.name}**\n\n❌ No products available in stock.`;
+      }
+      
+      keyboard.push([{
+        text: '⬅️ Back to Categories',
+        callback_data: `shop_${shopId}`
+      }]);
+      
+      const response = await fetch(`https://api.telegram.org/bot${this.botToken}/sendMessage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text,
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: keyboard
+          }
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Telegram API error: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Error sending category products:', error);
+      throw error;
+    }
+  }
+
+  async sendProductDetails(chatId: string, shopId: string, productId: string, categoryId?: string): Promise<void> {
+    try {
+      const product = await this.getProductData(productId);
+      
+      if (!product) {
+        await this.sendMessage({
+          chat_id: chatId,
+          text: '❌ Product not found.',
+        });
+        return;
+      }
+      
+      let text = `🛍️ **${product.name}**\n\n`;
+      
+      if (product.description) {
+        text += `📝 ${product.description}\n\n`;
+      }
+      
+      text += `💰 **Price:** $${product.price.toFixed(2)}\n`;
+      text += `📦 **Stock:** ${product.stock} available\n`;
+      
+      const isAvailable = product.isActive && product.stock > 0;
+      
+      if (!isAvailable) {
+        text += '\n❌ **Currently unavailable**';
+      }
+      
+      // Create keyboard
+      const keyboard = [];
+      
+      if (isAvailable) {
+        keyboard.push([{
+          text: '🛒 Order This Item',
+          callback_data: `order_${shopId}_${productId}`
+        }]);
+      }
+      
+      // Back button
+      if (categoryId) {
+        keyboard.push([{
+          text: '⬅️ Back to Products',
+          callback_data: `category_${shopId}_${categoryId}`
+        }]);
+      } else {
+        keyboard.push([{
+          text: '⬅️ Back to Categories',
+          callback_data: `shop_${shopId}`
+        }]);
+      }
+      
+      // Send with image if available
+      if (product.images && product.images.length > 0) {
+        const response = await fetch(`https://api.telegram.org/bot${this.botToken}/sendPhoto`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            chat_id: chatId,
+            photo: product.images[0],
+            caption: text,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: keyboard
+            }
+          }),
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Telegram API error: ${response.status}`);
+        }
+      } else {
+        const response = await fetch(`https://api.telegram.org/bot${this.botToken}/sendMessage`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: keyboard
+            }
+          }),
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Telegram API error: ${response.status}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error sending product details:', error);
+      throw error;
+    }
+  }
+
+  async sendOrderConfirmation(chatId: string, shopId: string, productId: string, userInfo: any): Promise<void> {
+    try {
+      const product = await this.getProductData(productId);
+      const shop = await this.getShopData(shopId);
+      
+      if (!product || !shop) {
+        await this.sendMessage({
+          chat_id: chatId,
+          text: '❌ Product or shop not found.',
+        });
+        return;
+      }
+      
+      const confirmationText = `
+✅ **Order Request Sent!**
+
+🛍️ **Product:** ${product.name}
+💰 **Price:** $${product.price.toFixed(2)}
+🏪 **Shop:** ${shop.name}
+
+📞 **Next Steps:**
+The shop owner will contact you shortly to confirm your order and arrange payment/delivery.
+
+Thank you for your order! 🙏
+      `.trim();
+      
+      const keyboard = [[{
+        text: '⬅️ Back to Product',
+        callback_data: `product_${shopId}_${productId}`
+      }]];
+      
+      await fetch(`https://api.telegram.org/bot${this.botToken}/sendMessage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: confirmationText,
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: keyboard
+          }
+        }),
+      });
+      
+      // Log the order (you can extend this to save to database)
+      console.log(`Order request: User ${userInfo.id} ordered ${product.name} from shop ${shopId}`);
+    } catch (error) {
+      console.error('Error sending order confirmation:', error);
+      throw error;
+    }
+  }
+
+  // Data fetching methods (these would typically call your API)
+  async getShopCategories(shopId: string): Promise<CategoryData[]> {
+    try {
+      const response = await fetch(`/api/shops/${shopId}/categories`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch categories: ${response.status}`);
+      }
+      
+      const categories = await response.json();
+      return categories.sort((a: CategoryData, b: CategoryData) => a.order - b.order);
+    } catch (error) {
+      console.error('Error fetching shop categories:', error);
+      return [];
+    }
+  }
+
+  async getCategoryData(categoryId: string): Promise<CategoryData | null> {
+    try {
+      const response = await fetch(`/api/categories/${categoryId}`);
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          return null;
+        }
+        throw new Error(`Failed to fetch category: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching category data:', error);
+      return null;
+    }
+  }
+
+  async getCategoryProducts(shopId: string, categoryId: string): Promise<ProductData[]> {
+    try {
+      const response = await fetch(`/api/shops/${shopId}/categories/${categoryId}/products`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch products: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching category products:', error);
+      return [];
+    }
+  }
+
+  async getProductData(productId: string): Promise<ProductData | null> {
+    try {
+      const response = await fetch(`/api/products/${productId}`);
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          return null;
+        }
+        throw new Error(`Failed to fetch product: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching product data:', error);
+      return null;
+    }
+  }
+
+  async getShopData(shopId: string): Promise<ShopData | null> {
+    try {
+      const response = await fetch(`/api/shops/${shopId}`);
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          return null;
+        }
+        throw new Error(`Failed to fetch shop: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching shop data:', error);
+      return null;
     }
   }
 
