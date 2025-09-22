@@ -108,7 +108,7 @@ export const CartModal: React.FC<CartModalProps> = ({
       let paymentPhotoUrl = '';
       if (paymentPhoto) {
         // Upload payment photo
-        const { imgbbService } = await import('../../services/imgbb');
+        const { imgbbService } = await import('../services/imgbb');
         paymentPhotoUrl = await imgbbService.uploadImage(paymentPhoto, `payment_${Date.now()}`);
       }
 
