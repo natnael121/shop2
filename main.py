@@ -374,40 +374,6 @@ class TelegramBot:
                 await self.send_error_message(update, "Product or shop not found")
                 return
             
-            # Create order data for Firebase
-            order_data = {
-                'shopId': shop_id,
-                'customerId': f"telegram_{telegram_id}",
-                'customerName': f"{user.first_name} {user.last_name or ''}".strip(),
-                'telegramId': str(telegram_id),
-                'telegramUsername': user.username,
-                'items': [{
-                    'productId': product_id,
-                    'productName': product_data['name'],
-                    'quantity': 1,
-                    'price': product_data['price'],
-                    'total': product_data['price']
-                }],
-                'total': product_data['price'],
-                'deliveryMethod': 'pickup',
-                'paymentPreference': 'cash',
-                'tableNumber': f"telegram_{telegram_id}",
-                'status': 'pending',
-                'paymentStatus': 'pending',
-                'source': 'telegram'
-            }
-            
-            # Store order in Firebase
-            try:
-                import requests
-                import json
-                
-                # You'll need to implement a Firebase REST API endpoint or use Firebase Admin SDK
-                # For now, we'll create the order message and send it
-                pass
-            except Exception as e:
-                logger.error(f"Failed to store order in Firebase: {e}")
-            
             # Create order message for shop owner
             order_message = f"""
 🛒 **New Order Request**
@@ -425,6 +391,9 @@ class TelegramBot:
 
 📝 **Instructions:** Please contact the customer to confirm the order details.
             """.strip()
+            
+            # Send to shop owner (you'll need to implement shop owner notification)
+            # For now, we'll just confirm to the user
             
             confirmation_text = f"""
 ✅ **Order Request Sent!**

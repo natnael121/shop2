@@ -23,12 +23,7 @@ export default function AuthForm() {
 
     try {
       if (isSignUp) {
-        const user = await signUp(formData.email, formData.password, formData.displayName);
-        // Set user role as shop admin by default
-        await updateDoc(doc(db, 'users', user.uid), {
-          role: 'shop_admin',
-          userType: 'admin'
-        });
+        await signUp(formData.email, formData.password, formData.displayName);
       } else {
         await signIn(formData.email, formData.password);
       }

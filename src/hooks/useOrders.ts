@@ -67,7 +67,6 @@ export function useOrders(shopId: string | undefined) {
     shopId: string;
     customerId: string;
     customerName: string;
-    customerPhone?: string;
     items: any[];
     total: number;
     deliveryMethod: 'pickup' | 'delivery';
@@ -75,8 +74,6 @@ export function useOrders(shopId: string | undefined) {
     customerNotes?: string;
     paymentPreference: string;
     tableNumber: string;
-    telegramId?: string;
-    telegramUsername?: string;
   }) => {
     try {
       const docRef = await addDoc(collection(db, 'orders'), {

@@ -664,9 +664,6 @@ ${itemsList}
 
   async sendOrderForApproval(orderData: any, chatId: string): Promise<void> {
     try {
-      // Store order in Firebase first
-      await this.storeOrderInFirebase(orderData);
-      
       const itemsList = orderData.items.map((item: any) => 
         `• ${item.productName} × ${item.quantity} = $${item.total.toFixed(2)}`
       ).join('\n');
@@ -720,9 +717,6 @@ ${orderData.customerNotes ? `📝 <b>Notes:</b> ${orderData.customerNotes}\n` : 
 
   async sendPaymentConfirmationOrder(orderData: any, chatId: string): Promise<void> {
     try {
-      // Store order in Firebase first
-      await this.storeOrderInFirebase(orderData);
-      
       const itemsList = orderData.items.map((item: any) => 
         `• ${item.productName} × ${item.quantity} = $${item.total.toFixed(2)}`
       ).join('\n');
@@ -854,35 +848,6 @@ ${orderData.customerNotes ? `📝 <b>Notes:</b> ${orderData.customerNotes}\n` : 
     } catch (error) {
       console.error('Failed to send approved order to groups:', error);
       throw error;
-    }
-  }
-
-  // Store Telegram orders in Firebase
-  async storeOrderInFirebase(orderData: any): Promise<string> {
-    try {
-      const response = await fetch('/api/orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...orderData,
-          source: 'telegram',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to store order: ${response.status}`);
-      }
-
-      const result = await response.json();
-      return result.id;
-    } catch (error) {
-      console.error('Error storing order in Firebase:', error);
-      // Don't throw error to prevent Telegram message failure
-      return '';
     }
   }
 

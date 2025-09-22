@@ -16,7 +16,6 @@ import { OrderManagement } from './components/Orders/OrderManagement';
 import DepartmentManagement from './components/Departments/DepartmentManagement';
 import CategoryManagement from './components/Categories/CategoryManagement';
 import SettingsPanel from './components/Settings/SettingsPanel';
-import CustomerManagement from './components/Customers/CustomerManagement';
 import { Shop } from './types';
 
 function App() {
@@ -156,7 +155,10 @@ function DashboardApp() {
         
       case 'customers':
         return (
-          <CustomerManagement selectedShopId={selectedShop?.id} />
+          <div className="text-center py-12">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Customers</h2>
+            <p className="text-gray-500">Customer management coming soon...</p>
+          </div>
         );
         
       case 'telegram':
