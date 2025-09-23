@@ -454,29 +454,29 @@ class TelegramBot:
                 await self.send_error_message(update, "Product or shop not found")
                 return
 
-            # ✅ Save order to Firebase
+            # Create order data for Firebase
             order_data = {
-                'user': {
-                    'telegram_id': telegram_id,
-                    'username': user.username,
-                    'first_name': user.first_name,
-                    'last_name': user.last_name
-                },
-                'shop': {
-                    'id': shop_id,
-                    'name': shop_data['name']
-                },
-                'product': {
-                    'id': product_id,
-                    'name': product_data['name'],
+                'shopId': shop_id,
+                'customerId': user.username or f'user_{telegram_id}',
+                'customerName': user.first_name or user.username or f'User {telegram_id}',
+                'telegramId': str(telegram_id),
+                'telegramUsername': user.username,
+                'items': [{
+                    'productId': product_id,
+                    'productName': product_data['name'],
+                    'quantity': 1,
                     'price': product_data['price'],
-                    'sku': product_data.get('sku', ''),
-                    'category': product_data.get('category', '')
-                },
-                'order_status': 'pending',
-                'created_at': datetime.now().isoformat(),
-                'total_amount': product_data['price'],
-                'quantity': 1
+                    'total': product_data['price']
+                }],
+                'total': product_data['price'],
+                'status': 'pending',
+                'paymentStatus': 'pending',
+                'deliveryMethod': 'pickup',
+                'paymentPreference': 'cash',
+                'tableNumber': f'TG-{telegram_id}',
+                'source': 'telegram',
+                'createdAt': datetime.now(),
+                'updatedAt': datetime.now()
             }
 
             # Add order to Firebase
@@ -496,6 +496,75 @@ class TelegramBot:
                 logger.error(f"Failed to save order to Firebase: {firebase_error}")
                 await self.send_error_message(update, "Failed to save order. Please try again.")
                 return
+
+            # Send order for approval to admin chat
+            try:
+                # Get cashier department for approval
+                departments_ref = db.collection('departments').where('role', '==', 'cashier')
+                departments = departments_ref.stream()
+                
+                approval_chat_id = None
+                for dept in departments:
+                    dept_data = dept.to_dict()
+                    if dept_data.get('shopId') == shop_id:
+                        approval_chat_id = dept_data.get('telegramChatId')
+                        break
+                
+                if approval_chat_id:
+                    # Send order for approval
+                    approval_message = f"""
+🛍️ <b>New Telegram Order Pending Approval</b>
+
+📋 Order ID: #{order_id[-6:]}
+👤 Customer: {order_data['customerName']}
+📱 Telegram: @{user.username or 'N/A'} (ID: {telegram_id})
+🏪 Shop: {shop_data['name']}
+💰 Total: ${product_data['price']:.2f}
+
+📦 <b>Items:</b>
+• {product_data['name']} × 1 = ${product_data['price']:.2f}
+
+⏰ Ordered: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+📱 Source: Telegram Bot
+
+<i>Please approve or reject this order</i>
+                    """.strip()
+                    
+                    # Send approval message
+                    import requests
+                    bot_token = None
+                    
+                    # Get bot token from user settings
+                    try:
+                        # Find shop owner
+                        shop_ref = db.collection('shops').document(shop_id)
+                        shop_doc = shop_ref.get()
+                        if shop_doc.exists:
+                            owner_id = shop_doc.to_dict().get('ownerId')
+                            if owner_id:
+                                user_ref = db.collection('users').document(owner_id)
+                                user_doc = user_ref.get()
+                                if user_doc.exists:
+                                    bot_token = user_doc.to_dict().get('telegramBotToken')
+                    except Exception as e:
+                        logger.error(f"Error getting bot token: {e}")
+                    
+                    if bot_token:
+                        telegram_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+                        telegram_data = {
+                            'chat_id': approval_chat_id,
+                            'text': approval_message,
+                            'parse_mode': 'HTML'
+                        }
+                        
+                        response = requests.post(telegram_url, json=telegram_data)
+                        if response.status_code == 200:
+                            logger.info(f"Order approval message sent for order {order_id}")
+                        else:
+                            logger.error(f"Failed to send approval message: {response.text}")
+            
+            except Exception as approval_error:
+                logger.error(f"Error sending order for approval: {approval_error}")
 
             # Confirmation text
             confirmation_text = f"""
