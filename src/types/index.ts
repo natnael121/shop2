@@ -123,6 +123,7 @@ export interface Customer {
   phone?: string;
   telegramUsername?: string;
   telegramId?: string;
+  source: 'web' | 'telegram';
   tags: CustomerTag[];
   totalOrders: number;
   totalSpent: number;
