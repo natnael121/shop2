@@ -2,6 +2,8 @@ export interface User {
   uid: string;
   email: string;
   displayName?: string;
+  role?: 'shop_admin' | 'customer';
+  userType?: 'admin' | 'customer';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -57,6 +59,8 @@ export interface Order {
   paymentStatus: 'pending' | 'paid' | 'refunded';
   paymentPreference?: string;
   tableNumber?: string;
+  telegramId?: string;
+  telegramUsername?: string;
   createdAt: Date;
   updatedAt: Date;
 }
