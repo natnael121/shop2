@@ -61,6 +61,7 @@ export interface Order {
   tableNumber?: string;
   telegramId?: string;
   telegramUsername?: string;
+  source?: 'web' | 'telegram';
   createdAt: Date;
   updatedAt: Date;
 }

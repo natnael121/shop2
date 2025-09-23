@@ -359,6 +359,9 @@ export default function CatalogPage({}: CatalogPageProps) {
       if (orderDetails.paymentPhotoUrl) {
         orderData.paymentPhotoUrl = orderDetails.paymentPhotoUrl;
       }
+      
+      // Mark as web order
+      orderData.source = 'web';
 
       // Create the order in database      
       const docRef = await addDoc(collection(db, 'orders'), {

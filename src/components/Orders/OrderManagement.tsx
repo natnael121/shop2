@@ -463,6 +463,15 @@ ${itemsList}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{order.customerId}</div>
+                      {order.source === 'telegram' && (
+                        <div className="text-xs text-blue-600 flex items-center mt-1">
+                          <MessageSquare className="w-3 h-3 mr-1" />
+                          Telegram Order
+                        </div>
+                      )}
+                      {order.telegramUsername && (
+                        <div className="text-xs text-gray-500">@{order.telegramUsername}</div>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-900">

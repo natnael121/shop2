@@ -686,13 +686,14 @@ ${itemsList}
       const message = `
 🛍️ <b>New Order Pending Approval</b>
 
-📋 Order ID: #${Date.now().toString().slice(-6)}
+📋 Order ID: #${orderData.id ? orderData.id.slice(-6) : Date.now().toString().slice(-6)}
 👤 Customer: ${orderData.customerName}
 📞 Table/Contact: ${orderData.tableNumber}
 🚚 Method: ${orderData.deliveryMethod === 'delivery' ? '🚚 Delivery' : '📦 Pickup'}
 ${deliveryInfo}
 💳 Payment: ${orderData.paymentPreference}
 💰 Total: $${orderData.total.toFixed(2)}
+📱 Source: ${orderData.source === 'telegram' ? '📱 Telegram' : '🌐 Web'}
 
 📦 <b>Items:</b>
 ${itemsList}
@@ -711,6 +712,99 @@ ${orderData.customerNotes ? `📝 <b>Notes:</b> ${orderData.customerNotes}\n` : 
       });
     } catch (error) {
       console.error('Failed to send order for approval:', error);
+      throw error;
+    }
+  }
+
+  // New method to create Telegram orders directly
+  async createTelegramOrder(orderData: {
+    shopId: string;
+    customerId: string;
+    customerName: string;
+    telegramId: string;
+    telegramUsername?: string;
+    items: Array<{
+      productId: string;
+      productName: string;
+      quantity: number;
+      price: number;
+      total: number;
+    }>;
+    total: number;
+    deliveryMethod?: 'pickup' | 'delivery';
+    deliveryAddress?: string;
+    customerNotes?: string;
+    paymentPreference?: string;
+  }): Promise<string> {
+    try {
+      // Import Firebase functions
+      const { addDoc, collection } = await import('firebase/firestore');
+      const { db } = await import('../lib/firebase');
+      
+      const docRef = await addDoc(collection(db, 'orders'), {
+        ...orderData,
+        status: 'pending',
+        paymentStatus: 'pending',
+        source: 'telegram',
+        tableNumber: `TG-${orderData.telegramId}`,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      
+      return docRef.id;
+    } catch (error) {
+      console.error('Error creating Telegram order:', error);
+      throw error;
+    }
+  }
+
+  // Method to handle order requests from Telegram bot
+  async handleTelegramOrderRequest(
+    telegramId: number,
+    username: string | undefined,
+    firstName: string | undefined,
+    productId: string,
+    shopId: string,
+    approvalChatId: string
+  ): Promise<void> {
+    try {
+      // Get product data
+      const product = await this.getProductData(productId);
+      if (!product) {
+        throw new Error('Product not found');
+      }
+
+      // Create order data
+      const orderData = {
+        shopId,
+        customerId: username || `user_${telegramId}`,
+        customerName: firstName || username || `User ${telegramId}`,
+        telegramId: telegramId.toString(),
+        telegramUsername: username,
+        items: [{
+          productId: product.id,
+          productName: product.name,
+          quantity: 1,
+          price: product.price,
+          total: product.price
+        }],
+        total: product.price,
+        deliveryMethod: 'pickup' as const,
+        paymentPreference: 'cash'
+      };
+
+      // Create the order
+      const orderId = await this.createTelegramOrder(orderData);
+      
+      // Add order ID to data for approval message
+      const orderWithId = { ...orderData, id: orderId };
+      
+      // Send for approval
+      await this.sendOrderForApproval(orderWithId, approvalChatId);
+      
+      return orderId;
+    } catch (error) {
+      console.error('Error handling Telegram order request:', error);
       throw error;
     }
   }

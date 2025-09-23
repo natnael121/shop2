@@ -77,12 +77,14 @@ export function useOrders(shopId: string | undefined) {
     tableNumber: string;
     telegramId?: string;
     telegramUsername?: string;
+    source?: 'web' | 'telegram';
   }) => {
     try {
       const docRef = await addDoc(collection(db, 'orders'), {
         ...orderData,
         status: 'pending',
         paymentStatus: 'pending',
+        source: orderData.source || 'web',
         createdAt: new Date(),
         updatedAt: new Date()
       });
