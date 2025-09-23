@@ -8,7 +8,8 @@ import {
   Settings,
   Store,
   MessageSquare,
-  Tag
+  Tag,
+  X
 } from 'lucide-react';
 import { clsx } from 'clsx';
 

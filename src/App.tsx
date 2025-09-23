@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { X } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
 import { useShops } from './hooks/useShops';
 import { useProducts } from './hooks/useProducts';
