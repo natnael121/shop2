@@ -22,29 +22,6 @@ import { Shop } from './types';
 
 function App() {
   const { user, loading: authLoading } = useAuth();
-  const [activeSection, setActiveSection] = useState('dashboard');
-  const [selectedShop, setSelectedShop] = useState<Shop | undefined>();
-
-  const { shops, loading: shopsLoading, createShop } = useShops(user?.uid);
-  const { products, loading: productsLoading, createProduct, updateProduct, deleteProduct } = useProducts(selectedShop?.id);
-  const { orders, loading: ordersLoading, updateOrderStatus } = useOrders(selectedShop?.id);
-
-  // Auto-select first shop if none selected
-  useEffect(() => {
-    if (shops.length > 0 && !selectedShop) {
-      setSelectedShop(shops[0]);
-    }
-  }, [shops, selectedShop]);
-
-  // Calculate dashboard stats
-  const stats = {
-    totalShops: shops.length,
-    totalProducts: products.length,
-    totalOrders: orders.length,
-    totalCustomers: new Set(orders.map(o => o.customerId)).size,
-    revenue: orders.reduce((sum, order) => sum + order.total, 0),
-    lowStockItems: products.filter(p => p.stock <= p.lowStockAlert).length,
-  };
 
   if (authLoading) {
     return (
@@ -54,15 +31,11 @@ function App() {
     );
   }
 
-  if (!user) {
-    return <AuthForm />;
-  }
-
   return (
     <Router>
       <Routes>
         <Route path="/shop/:shopName" element={<CatalogPage />} />
-        <Route path="/*" element={<DashboardApp />} />
+        <Route path="/*" element={user ? <DashboardApp /> : <AuthForm />} />
       </Routes>
     </Router>
   );
