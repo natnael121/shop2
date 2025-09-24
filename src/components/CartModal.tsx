@@ -15,6 +15,12 @@ interface CartModalProps {
   items: OrderItem[];
   totalAmount: number;
   tableNumber: string;
+  telegramUserInfo?: {
+    id: number;
+    firstName: string;
+    lastName?: string;
+    username?: string;
+  };
   onClose: () => void;
   onUpdateQuantity: (itemId: string, quantity: number) => void;
   onRemoveItem: (itemId: string) => void;
@@ -34,13 +40,16 @@ export const CartModal: React.FC<CartModalProps> = ({
   items,
   totalAmount,
   tableNumber,
+  telegramUserInfo,
   onClose,
   onUpdateQuantity,
   onRemoveItem,
   onPlaceOrder,
 }) => {
   const [showCheckout, setShowCheckout] = React.useState(false);
-  const [customerName, setCustomerName] = React.useState('');
+  const [customerName, setCustomerName] = React.useState(
+    telegramUserInfo ? `${telegramUserInfo.firstName} ${telegramUserInfo.lastName || ''}`.trim() : ''
+  );
   const [customerPhone, setCustomerPhone] = React.useState('');
   const [deliveryMethod, setDeliveryMethod] = React.useState<'pickup' | 'delivery'>('pickup');
   const [deliveryAddress, setDeliveryAddress] = React.useState('');
@@ -286,16 +295,21 @@ export const CartModal: React.FC<CartModalProps> = ({
             <div>
               <label className="block text-sm font-medium text-white mb-2">
                 <User className="w-4 h-4 inline mr-2" />
-                Your Name *
+                {telegramUserInfo ? 'Confirm Your Name *' : 'Your Name *'}
               </label>
               <input
                 type="text"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
-                placeholder="Enter your full name"
+                placeholder={telegramUserInfo ? telegramUserInfo.firstName : "Enter your full name"}
                 required
               />
+              {telegramUserInfo && (
+                <p className="text-xs text-gray-400 mt-1">
+                  From Telegram: @{telegramUserInfo.username || 'N/A'}
+                </p>
+              )}
             </div>
 
             {/* Customer Phone */}

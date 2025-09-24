@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs, doc, getDoc, addDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Product, Shop, TableBill, OrderItem } from '../types';
+import { useTelegramWebApp } from '../hooks/useTelegramWebApp';
+import { TelegramWebAppScript } from '../components/TelegramWebAppScript';
 import { BottomNav } from '../components/BottomNav';
 import { CartModal } from '../components/CartModal';
 import { BillModal } from '../components/BillModal';
@@ -40,6 +42,9 @@ export default function CatalogPage({}: CatalogPageProps) {
   const { shopName } = useParams<{ shopName: string }>();
   const navigate = useNavigate();
   
+  // Telegram Web App integration
+  const { webApp, user: telegramUser, isReady: isTelegramReady, isTelegramWebApp, initDataUnsafe } = useTelegramWebApp();
+  
   const [shop, setShop] = useState<Shop | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
@@ -73,6 +78,8 @@ export default function CatalogPage({}: CatalogPageProps) {
   const [paymentChatId, setPaymentChatId] = useState<string | null>(null);
   const [businessInfo, setBusinessInfo] = useState<any>(null);
 
+  // Telegram user state
+  const [telegramUserInfo, setTelegramUserInfo] = useState<any>(null);
 
   useEffect(() => {
     if (shopName) {
@@ -80,6 +87,61 @@ export default function CatalogPage({}: CatalogPageProps) {
     }
   }, [shopName]);
 
+  useEffect(() => {
+    // Handle Telegram user info when available
+    if (isTelegramReady && telegramUser) {
+      setTelegramUserInfo({
+        id: telegramUser.id,
+        firstName: telegramUser.first_name,
+        lastName: telegramUser.last_name,
+        username: telegramUser.username,
+        languageCode: telegramUser.language_code,
+        isPremium: telegramUser.is_premium,
+        photoUrl: telegramUser.photo_url
+      });
+      
+      console.log('Telegram user info:', telegramUser);
+      
+      // Set default customer name from Telegram
+      if (telegramUser.first_name) {
+        // You can use this info in forms or order creation
+        console.log('Default customer name:', telegramUser.first_name);
+      }
+    }
+  }, [isTelegramReady, telegramUser]);
+
+  useEffect(() => {
+    // Configure Telegram Web App UI
+    if (webApp && isTelegramWebApp) {
+      // Set header color to match your app theme
+      webApp.headerColor = '#111827'; // gray-900
+      webApp.backgroundColor = '#f9fafb'; // gray-50
+      
+      // Configure back button
+      webApp.BackButton.onClick(() => {
+        navigate('/');
+      });
+      
+      // Show back button if not on main page
+      if (window.location.pathname !== '/') {
+        webApp.BackButton.show();
+      }
+      
+      // Configure main button for cart
+      webApp.MainButton.setText('View Cart');
+      webApp.MainButton.onClick(() => {
+        setShowCart(true);
+      });
+      
+      // Update main button based on cart items
+      if (cartItems.length > 0) {
+        webApp.MainButton.setText(`View Cart (${cartItemCount})`);
+        webApp.MainButton.show();
+      } else {
+        webApp.MainButton.hide();
+      }
+    }
+  }, [webApp, isTelegramWebApp, cartItems, cartItemCount, navigate]);
   useEffect(() => {
     if (shop?.ownerId) {
       loadTelegramConfig();
@@ -269,6 +331,11 @@ export default function CatalogPage({}: CatalogPageProps) {
   };
 
   const handleAddToCart = (product: Product, quantity: number = 1) => {
+    // Use Telegram haptic feedback if available
+    if (webApp?.HapticFeedback) {
+      webApp.HapticFeedback.impactOccurred('light');
+    }
+    
     const existingItem = cartItems.find(item => item.id === product.id);
     
     if (existingItem) {
@@ -330,12 +397,21 @@ export default function CatalogPage({}: CatalogPageProps) {
     paymentPhotoUrl?: string;
   }) => {
     try {
+      // Use Telegram user info if available and no custom name provided
+      const finalCustomerName = orderDetails.customerName || 
+        (telegramUserInfo ? `${telegramUserInfo.firstName} ${telegramUserInfo.lastName || ''}`.trim() : 'Customer');
+      
       // Create order data
       const orderData: any = {
         shopId: shop!.id,
-        customerId: orderDetails.customerName,
-        customerName: orderDetails.customerName,
+        customerId: telegramUserInfo?.username || finalCustomerName,
+        customerName: finalCustomerName,
         customerPhone: orderDetails.customerPhone,
+        // Add Telegram-specific fields
+        ...(telegramUserInfo && {
+          telegramId: telegramUserInfo.id.toString(),
+          telegramUsername: telegramUserInfo.username,
+        }),
         items: cartItems.map(item => ({
           productId: item.id,
           productName: item.name,
@@ -361,7 +437,7 @@ export default function CatalogPage({}: CatalogPageProps) {
       }
       
       // Mark as web order
-      orderData.source = 'web';
+      orderData.source = isTelegramWebApp ? 'telegram' : 'web';
 
       // Create the order in database      
       const docRef = await addDoc(collection(db, 'orders'), {
@@ -402,23 +478,48 @@ export default function CatalogPage({}: CatalogPageProps) {
   };
 
   const handleWaiterCall = () => {
+    // Use Telegram haptic feedback if available
+    if (webApp?.HapticFeedback) {
+      webApp.HapticFeedback.notificationOccurred('success');
+    }
+    
     if (telegramBotToken && approvalChatId) {
       const telegram = new TelegramService(telegramBotToken);
+      const customerInfo = telegramUserInfo ? 
+        `${telegramUserInfo.firstName} (@${telegramUserInfo.username || 'N/A'})` : 
+        `Table ${tableNumber}`;
+      
       telegram.sendMessage({
         chat_id: approvalChatId,
-        text: `🔔 <b>Waiter Call</b>\n\nTable ${tableNumber} is requesting assistance.\n\n⏰ ${new Date().toLocaleString()}`,
+        text: `🔔 <b>Waiter Call</b>\n\n${customerInfo} is requesting assistance.\n\n⏰ ${new Date().toLocaleString()}`,
         parse_mode: 'HTML'
       }).then(() => {
-        alert('Waiter has been called!');
+        if (webApp?.showAlert) {
+          webApp.showAlert('Waiter has been called!');
+        } else {
+          alert('Waiter has been called!');
+        }
       }).catch(() => {
-        alert('Failed to call waiter. Please try again.');
+        if (webApp?.showAlert) {
+          webApp.showAlert('Failed to call waiter. Please try again.');
+        } else {
+          alert('Failed to call waiter. Please try again.');
+        }
       });
     } else {
-      alert('Telegram integration not configured. Please contact the restaurant.');
+      if (webApp?.showAlert) {
+        webApp.showAlert('Telegram integration not configured. Please contact the restaurant.');
+      } else {
+        alert('Telegram integration not configured. Please contact the restaurant.');
+      }
     }
   };
 
   const handleBillClick = () => {
+    // Use Telegram haptic feedback if available
+    if (webApp?.HapticFeedback) {
+      webApp.HapticFeedback.impactOccurred('light');
+    }
     setShowBill(true);
   };
 
@@ -499,7 +600,17 @@ export default function CatalogPage({}: CatalogPageProps) {
   }
 
   return (
+    <>
+      <TelegramWebAppScript />
     <div className="min-h-screen bg-gray-50 pb-20 overflow-x-hidden">
+      {/* Telegram User Info Debug (only in development) */}
+      {process.env.NODE_ENV === 'development' && telegramUserInfo && (
+        <div className="bg-blue-100 border border-blue-300 p-2 text-xs text-blue-800">
+          <strong>Telegram User:</strong> {telegramUserInfo.firstName} {telegramUserInfo.lastName} 
+          (@{telegramUserInfo.username}) - ID: {telegramUserInfo.id}
+        </div>
+      )}
+      
       {/* Table Header */}
       <TableHeader
         tableNumber={tableNumber}
@@ -507,6 +618,11 @@ export default function CatalogPage({}: CatalogPageProps) {
         orderType="dine-in"
         businessName={shop.name}
         businessLogo={businessInfo?.logo}
+        customerInfo={telegramUserInfo ? {
+          name: `${telegramUserInfo.firstName} ${telegramUserInfo.lastName || ''}`.trim(),
+          username: telegramUserInfo.username,
+          photo: telegramUserInfo.photoUrl
+        } : undefined}
       />
 
       {/* Filters */}
@@ -624,6 +740,7 @@ export default function CatalogPage({}: CatalogPageProps) {
           items={cartItems}
           totalAmount={totalAmount}
           tableNumber={tableNumber}
+          telegramUserInfo={telegramUserInfo}
           onClose={() => setShowCart(false)}
           onUpdateQuantity={handleUpdateCartQuantity}
           onRemoveItem={handleRemoveFromCart}
@@ -666,5 +783,6 @@ export default function CatalogPage({}: CatalogPageProps) {
         />
       )}
     </div>
+    </>
   );
 }
