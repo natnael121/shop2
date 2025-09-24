@@ -895,6 +895,10 @@ class TelegramBot:
             logger.error(f"Error getting user Firebase UID: {e}")
             return str(telegram_id)
     
+    async def reload_shop_owners(self):
+        """Reload shop owners cache"""
+        await self.load_shop_owners()
+    
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle button callbacks"""
         query = update.callback_query
