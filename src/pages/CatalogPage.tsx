@@ -71,6 +71,10 @@ export default function CatalogPage({}: CatalogPageProps) {
   const [tableNumber] = useState('1'); // This could be dynamic based on URL params
   const [tableBill, setTableBill] = useState<TableBill | null>(null);
   
+  // Calculate cart totals
+  const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const totalAmount = cartItems.reduce((sum, item) => sum + item.total, 0);
+  
   // Telegram integration state
   const [telegramBotToken, setTelegramBotToken] = useState<string | null>(null);
   const [approvalChatId, setApprovalChatId] = useState<string | null>(null);
@@ -548,8 +552,6 @@ export default function CatalogPage({}: CatalogPageProps) {
     alert('Payment submitted successfully! Your order will be processed shortly.');
   };
 
-  const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-  const totalAmount = cartItems.reduce((sum, item) => sum + item.total, 0);
 
   const handleShare = async (product: Product) => {
     if (navigator.share) {
