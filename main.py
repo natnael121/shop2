@@ -194,15 +194,46 @@ class TelegramBot:
         """Check if user is admin for the given shop"""
         try:
             # Query departments to find admin chat IDs for this shop
-            departments_ref = db.collection('departments').where('shopId', '==', shop_id).where('role', '==', 'admin')
+            departments_ref = db.collection('departments').where('shopId', '==', shop_id).where('role', 'in', ['admin', 'cashier'])
             departments = departments_ref.stream()
             
             for dept in departments:
                 dept_data = dept.to_dict()
-                admin_chat_id = dept_data.get('adminChatId')
-                if admin_chat_id:
-                    # Check if this telegram_id matches the admin chat (for private chats, chat_id = user_id)
-                    if str(telegram_id) == admin_chat_id or str(telegram_id) == admin_chat_id.replace('-', ''):
+                # Check both telegramChatId and adminChatId for cashier role
+                chat_ids_to_check = []
+                
+                # For cashier role, check both telegramChatId and adminChatId
+                if dept_data.get('role') == 'cashier':
+                    if dept_data.get('telegramChatId'):
+                        chat_ids_to_check.append(dept_data.get('telegramChatId'))
+                    if dept_data.get('adminChatId'):
+                        chat_ids_to_check.append(dept_data.get('adminChatId'))
+                # For admin role, check adminChatId
+                elif dept_data.get('role') == 'admin':
+                    if dept_data.get('adminChatId'):
+                        chat_ids_to_check.append(dept_data.get('adminChatId'))
+                
+                # Check if telegram_id matches any of the chat IDs
+                for chat_id in chat_ids_to_check:
+                    if chat_id:
+                        # For private chats, chat_id equals user_id
+                        # For groups, we need to check if user is admin in that group
+                        if str(telegram_id) == str(chat_id) or str(telegram_id) == str(chat_id).replace('-', ''):
+                            return True
+                        
+                        # If it's a group chat (negative ID), check if user is admin in that group
+                        if str(chat_id).startswith('-'):
+                            try:
+                                # Get chat administrators
+                                from telegram import Bot
+                                bot = Bot(token=self.bot_token)
+                                admins = await bot.get_chat_administrators(chat_id)
+                                for admin in admins:
+                                    if admin.user.id == telegram_id:
+                                        return True
+                            except Exception as e:
+                                logger.warning(f"Could not check group admin status: {e}")
+                                # Fallback: if we can't check group admin status, allow access
                         return True
             
             return False
