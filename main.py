@@ -19,7 +19,8 @@ from firebase_admin import credentials, firestore
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatMember
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler, 
-    ChatMemberHandler, ContextTypes, MessageHandler, filters
+    ChatMemberHandler, ContextTypes, MessageHandler, filters,
+    ConversationHandler
 )
 
 # Configure logging
@@ -42,6 +43,9 @@ firebase_admin.initialize_app(cred)
 
 # ✅ Firestore client
 db = firestore.client()
+
+# Conversation states for product creation
+PRODUCT_NAME, PRODUCT_DESCRIPTION, PRODUCT_PRICE, PRODUCT_STOCK, PRODUCT_CATEGORY, PRODUCT_IMAGES = range(6)
 
 class UserCache:
     """In-memory cache for user data"""
@@ -97,6 +101,25 @@ class TelegramBot:
         self.application.add_handler(CallbackQueryHandler(self.button_callback))
         self.application.add_handler(ChatMemberHandler(self.track_chat_members, ChatMemberHandler.CHAT_MEMBER))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.new_chat_members))
+        
+        # Add product creation conversation handler
+        conv_handler = ConversationHandler(
+            entry_points=[CallbackQueryHandler(self.start_add_product, pattern=r'^add_product_')],
+            states={
+                PRODUCT_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.get_product_name)],
+                PRODUCT_DESCRIPTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.get_product_description)],
+                PRODUCT_PRICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.get_product_price)],
+                PRODUCT_STOCK: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.get_product_stock)],
+                PRODUCT_CATEGORY: [CallbackQueryHandler(self.handle_category_selection, pattern=r'^category_select_|^create_new_category$')],
+                PRODUCT_IMAGES: [
+                    MessageHandler(filters.PHOTO, self.get_product_images),
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.skip_images)
+                ]
+            },
+            fallbacks=[CommandHandler('cancel', self.cancel_product_creation)],
+            per_chat=True
+        )
+        self.application.add_handler(conv_handler)
         
         # ✅ Add global error handler to prevent unhandled exceptions
         self.application.add_error_handler(self.error_handler)
@@ -167,6 +190,26 @@ class TelegramBot:
             logger.error(f"Error in start_command: {e}")
             await update.message.reply_text("❌ Sorry, something went wrong. Please try again.")
 
+    async def is_admin_user(self, telegram_id: int, shop_id: str) -> bool:
+        """Check if user is admin for the given shop"""
+        try:
+            # Query departments to find admin chat IDs for this shop
+            departments_ref = db.collection('departments').where('shopId', '==', shop_id).where('role', '==', 'admin')
+            departments = departments_ref.stream()
+            
+            for dept in departments:
+                dept_data = dept.to_dict()
+                admin_chat_id = dept_data.get('adminChatId')
+                if admin_chat_id:
+                    # Check if this telegram_id matches the admin chat (for private chats, chat_id = user_id)
+                    if str(telegram_id) == admin_chat_id or str(telegram_id) == admin_chat_id.replace('-', ''):
+                        return True
+            
+            return False
+        except Exception as e:
+            logger.error(f"Error checking admin status: {e}")
+            return False
+
     async def get_or_create_user(self, user) -> Dict:
         """Get user from cache or create new user record"""
         telegram_id = user.id
@@ -235,6 +278,9 @@ class TelegramBot:
             # Update user's last shop interaction
             telegram_id = update.effective_user.id
             await self.update_user_shop_interaction(telegram_id, shop_id)
+            
+            # Check if user is admin for this shop
+            is_admin = await self.is_admin_user(telegram_id, shop_id)
 
             # Get categories for this shop
             categories = await self.get_shop_categories(shop_id)
@@ -242,7 +288,10 @@ class TelegramBot:
 
             if not categories:
                 text = f"🏪 **{shop_data['name']}**\n\n❌ No categories available yet."
-                keyboard = [[InlineKeyboardButton("🔄 Refresh", callback_data=f"shop_{shop_id}")]]
+                keyboard = []
+                if is_admin:
+                    keyboard.append([InlineKeyboardButton("➕ Add Product", callback_data=f"add_product_{shop_id}")])
+                keyboard.append([InlineKeyboardButton("🔄 Refresh", callback_data=f"shop_{shop_id}")])
                 logger.info(f"No categories found, showing refresh button for shop {shop_id}")
             else:
                 text = f"🏪 **{shop_data['name']}**\n\n📂 Choose a category:"
@@ -255,6 +304,8 @@ class TelegramBot:
                     )])
                     logger.info(f"Added category button: {category['name']} with ID {category['id']}")
 
+                if is_admin:
+                    keyboard.append([InlineKeyboardButton("➕ Add Product", callback_data=f"add_product_{shop_id}")])
                 keyboard.append([InlineKeyboardButton("🔄 Refresh Menu", callback_data=f"shop_{shop_id}")])
 
             reply_markup = InlineKeyboardMarkup(keyboard)
@@ -636,6 +687,320 @@ class TelegramBot:
         except Exception as e:
             logger.error(f"Error in button callback: {e}")
             await self.send_error_message(update, "Something went wrong")
+
+    # Product Management Methods
+    async def start_add_product(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+        """Start the add product conversation"""
+        query = update.callback_query
+        await query.answer()
+        
+        shop_id = query.data.split('_')[2]
+        telegram_id = update.effective_user.id
+        
+        # Verify admin status
+        if not await self.is_admin_user(telegram_id, shop_id):
+            await query.edit_message_text("❌ You don't have permission to add products.")
+            return ConversationHandler.END
+        
+        # Store shop_id in context
+        context.user_data['shop_id'] = shop_id
+        context.user_data['product_data'] = {}
+        
+        await query.edit_message_text(
+            "➕ **Add New Product**\n\nPlease enter the product name:",
+            parse_mode='Markdown'
+        )
+        
+        return PRODUCT_NAME
+    
+    async def get_product_name(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+        """Get product name from user"""
+        product_name = update.message.text.strip()
+        
+        if len(product_name) < 2:
+            await update.message.reply_text("❌ Product name must be at least 2 characters long. Please try again:")
+            return PRODUCT_NAME
+        
+        context.user_data['product_data']['name'] = product_name
+        
+        await update.message.reply_text(
+            f"✅ Product name: **{product_name}**\n\nNow enter the product description:",
+            parse_mode='Markdown'
+        )
+        
+        return PRODUCT_DESCRIPTION
+    
+    async def get_product_description(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+        """Get product description from user"""
+        description = update.message.text.strip()
+        context.user_data['product_data']['description'] = description
+        
+        await update.message.reply_text(
+            f"✅ Description: **{description}**\n\nNow enter the product price (numbers only, e.g., 25.99):",
+            parse_mode='Markdown'
+        )
+        
+        return PRODUCT_PRICE
+    
+    async def get_product_price(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+        """Get product price from user"""
+        try:
+            price = float(update.message.text.strip())
+            if price <= 0:
+                raise ValueError("Price must be positive")
+            
+            context.user_data['product_data']['price'] = price
+            
+            await update.message.reply_text(
+                f"✅ Price: **${price:.2f}**\n\nNow enter the stock quantity (whole number):",
+                parse_mode='Markdown'
+            )
+            
+            return PRODUCT_STOCK
+            
+        except ValueError:
+            await update.message.reply_text("❌ Please enter a valid price (e.g., 25.99):")
+            return PRODUCT_PRICE
+    
+    async def get_product_stock(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+        """Get product stock from user"""
+        try:
+            stock = int(update.message.text.strip())
+            if stock < 0:
+                raise ValueError("Stock cannot be negative")
+            
+            context.user_data['product_data']['stock'] = stock
+            
+            await update.message.reply_text(
+                f"✅ Stock: **{stock}**\n\nNow choose a category for your product:",
+                parse_mode='Markdown'
+            )
+            
+            # Show category selection
+            await self.show_category_selection(update, context)
+            
+            return PRODUCT_CATEGORY
+            
+        except ValueError:
+            await update.message.reply_text("❌ Please enter a valid stock quantity (whole number):")
+            return PRODUCT_STOCK
+    
+    async def show_category_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Show available categories for selection"""
+        shop_id = context.user_data['shop_id']
+        
+        try:
+            categories = await self.get_shop_categories(shop_id)
+            
+            keyboard = []
+            
+            # Add existing categories
+            for category in categories:
+                keyboard.append([InlineKeyboardButton(
+                    f"{category.get('icon', '📦')} {category['name']}", 
+                    callback_data=f"category_select_{category['id']}"
+                )])
+            
+            # Add option to create new category
+            keyboard.append([InlineKeyboardButton("➕ Create New Category", callback_data="create_new_category")])
+            
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await update.message.reply_text(
+                "📂 **Select a category:**",
+                reply_markup=reply_markup,
+                parse_mode='Markdown'
+            )
+            
+        except Exception as e:
+            logger.error(f"Error showing category selection: {e}")
+            await update.message.reply_text("❌ Error loading categories. Please try again.")
+    
+    async def handle_category_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+        """Handle category selection or creation"""
+        query = update.callback_query
+        await query.answer()
+        
+        if query.data == "create_new_category":
+            await query.edit_message_text(
+                "➕ **Create New Category**\n\nPlease enter the new category name:",
+                parse_mode='Markdown'
+            )
+            context.user_data['creating_category'] = True
+            return PRODUCT_CATEGORY
+        
+        elif query.data.startswith("category_select_"):
+            category_id = query.data.split('_')[2]
+            
+            # Get category name
+            try:
+                category_data = await self.get_category_data(category_id)
+                if category_data:
+                    context.user_data['product_data']['category'] = category_data['name']
+                    context.user_data['product_data']['category_id'] = category_id
+                    
+                    await query.edit_message_text(
+                        f"✅ Category: **{category_data['name']}**\n\n📸 Now send product images (or type 'skip' to continue without images):",
+                        parse_mode='Markdown'
+                    )
+                    
+                    return PRODUCT_IMAGES
+                else:
+                    await query.edit_message_text("❌ Category not found. Please try again.")
+                    await self.show_category_selection(update, context)
+                    return PRODUCT_CATEGORY
+                    
+            except Exception as e:
+                logger.error(f"Error getting category data: {e}")
+                await query.edit_message_text("❌ Error loading category. Please try again.")
+                return PRODUCT_CATEGORY
+        
+        # Handle new category creation
+        elif context.user_data.get('creating_category'):
+            category_name = update.message.text.strip()
+            
+            if len(category_name) < 2:
+                await update.message.reply_text("❌ Category name must be at least 2 characters long. Please try again:")
+                return PRODUCT_CATEGORY
+            
+            try:
+                # Create new category
+                shop_id = context.user_data['shop_id']
+                
+                # Get shop owner ID
+                shop_data = await self.get_shop_data(shop_id)
+                if not shop_data:
+                    await update.message.reply_text("❌ Shop not found. Please try again.")
+                    return ConversationHandler.END
+                
+                # Create category document
+                category_data = {
+                    'name': category_name,
+                    'description': f'Category for {category_name}',
+                    'color': '#3B82F6',
+                    'icon': '📦',
+                    'order': 0,
+                    'userId': shop_data.get('ownerId'),
+                    'shopId': shop_id,
+                    'createdAt': datetime.now(),
+                    'updatedAt': datetime.now()
+                }
+                
+                doc_ref = db.collection('categories').document()
+                doc_ref.set(category_data)
+                
+                context.user_data['product_data']['category'] = category_name
+                context.user_data['product_data']['category_id'] = doc_ref.id
+                context.user_data['creating_category'] = False
+                
+                await update.message.reply_text(
+                    f"✅ Created new category: **{category_name}**\n\n📸 Now send product images (or type 'skip' to continue without images):",
+                    parse_mode='Markdown'
+                )
+                
+                return PRODUCT_IMAGES
+                
+            except Exception as e:
+                logger.error(f"Error creating category: {e}")
+                await update.message.reply_text("❌ Error creating category. Please try again:")
+                return PRODUCT_CATEGORY
+    
+    async def get_product_images(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+        """Get product images from user"""
+        if 'product_images' not in context.user_data:
+            context.user_data['product_images'] = []
+        
+        # Get the largest photo size
+        photo = update.message.photo[-1]
+        file = await context.bot.get_file(photo.file_id)
+        
+        # Download and upload to ImgBB (you'll need to implement this)
+        try:
+            # For now, we'll use the Telegram file URL directly
+            # In production, you should download and upload to a permanent storage
+            image_url = f"https://api.telegram.org/file/bot{self.bot_token}/{file.file_path}"
+            context.user_data['product_images'].append(image_url)
+            
+            image_count = len(context.user_data['product_images'])
+            
+            await update.message.reply_text(
+                f"✅ Added image {image_count}\n\n📸 Send more images or type 'done' to finish:",
+                parse_mode='Markdown'
+            )
+            
+            return PRODUCT_IMAGES
+            
+        except Exception as e:
+            logger.error(f"Error processing image: {e}")
+            await update.message.reply_text("❌ Error processing image. Please try again or type 'skip':")
+            return PRODUCT_IMAGES
+    
+    async def skip_images(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+        """Skip images or finish product creation"""
+        text = update.message.text.strip().lower()
+        
+        if text in ['skip', 'done', 'finish']:
+            # Finalize product creation
+            await self.create_product(update, context)
+            return ConversationHandler.END
+        else:
+            await update.message.reply_text("📸 Send an image or type 'skip' to continue without images, or 'done' to finish:")
+            return PRODUCT_IMAGES
+    
+    async def create_product(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Create the product in Firebase"""
+        try:
+            shop_id = context.user_data['shop_id']
+            product_data = context.user_data['product_data']
+            images = context.user_data.get('product_images', [])
+            
+            # Create product document
+            product_doc = {
+                'shopId': shop_id,
+                'name': product_data['name'],
+                'description': product_data['description'],
+                'price': product_data['price'],
+                'stock': product_data['stock'],
+                'category': product_data['category'],
+                'images': images,
+                'isActive': True,
+                'lowStockAlert': 5,
+                'createdAt': datetime.now(),
+                'updatedAt': datetime.now()
+            }
+            
+            # Add to Firebase
+            doc_ref = db.collection('products').document()
+            doc_ref.set(product_doc)
+            
+            # Success message
+            success_text = f"""
+✅ **Product Created Successfully!**
+
+🛍️ **Name:** {product_data['name']}
+📝 **Description:** {product_data['description']}
+💰 **Price:** ${product_data['price']:.2f}
+📦 **Stock:** {product_data['stock']}
+📂 **Category:** {product_data['category']}
+📸 **Images:** {len(images)} uploaded
+
+The product is now available in your shop! 🎉
+            """.strip()
+            
+            await update.message.reply_text(success_text, parse_mode='Markdown')
+            
+            # Clear context data
+            context.user_data.clear()
+            
+        except Exception as e:
+            logger.error(f"Error creating product: {e}")
+            await update.message.reply_text("❌ Error creating product. Please try again later.")
+    
+    async def cancel_product_creation(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+        """Cancel product creation"""
+        context.user_data.clear()
+        await update.message.reply_text("❌ Product creation cancelled.")
+        return ConversationHandler.END
 
     async def new_chat_members(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle new chat members"""
