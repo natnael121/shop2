@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Multi-Shop Telegram Bot with User Caching and Shop Navigation
-Enhanced with proper product and category management
+Enhanced with proper product and category management and order processing
 """
 
 import os
@@ -171,11 +171,11 @@ class TelegramBot:
         if cached_user and cached_user.get('last_shop_id'):
             shop_data = await self.get_shop_data(cached_user['last_shop_id'])
             if shop_data:
-                await self.send_shop_menu(chat_id, shop_data, user.id)
+                await self.send_shop_menu(chat_id, shop_data, user.id, context)
                 return
         
         # Show welcome message with available shops
-        await self.send_welcome_message(chat_id, user.first_name)
+        await self.send_welcome_message(chat_id, user.first_name, context)
     
     async def save_user_to_firebase(self, telegram_id: int, user_data: Dict):
         """Save user data to Firebase"""
@@ -208,7 +208,7 @@ class TelegramBot:
         except Exception as e:
             logger.error(f"Error saving user to Firebase: {e}")
     
-    async def send_welcome_message(self, chat_id: int, first_name: str):
+    async def send_welcome_message(self, chat_id: int, first_name: str, context: ContextTypes.DEFAULT_TYPE):
         """Send welcome message with available shops"""
         try:
             # Get all active shops
@@ -263,7 +263,7 @@ class TelegramBot:
             logger.error(f"Error getting shop data: {e}")
             return None
     
-    async def send_shop_menu(self, chat_id: int, shop_data: Dict, user_id: int):
+    async def send_shop_menu(self, chat_id: int, shop_data: Dict, user_id: int, context: ContextTypes.DEFAULT_TYPE):
         """Send shop menu with categories"""
         try:
             # Update user's shop interaction
@@ -287,7 +287,7 @@ class TelegramBot:
             
             if not categories:
                 text += "📂 No categories available yet."
-                if is_owner:
+                if is_owner or is_telegram_owner:
                     text += "\n\n➕ Use the buttons below to add categories and products."
             else:
                 text += "📂 Choose a category:"
@@ -397,7 +397,7 @@ class TelegramBot:
             logger.error(f"Error getting shop categories: {e}")
             return []
     
-    async def send_category_products(self, chat_id: int, shop_id: str, category_id: str, user_id: int):
+    async def send_category_products(self, chat_id: int, shop_id: str, category_id: str, user_id: int, context: ContextTypes.DEFAULT_TYPE):
         """Send products in a category"""
         try:
             # Get category data
@@ -441,7 +441,8 @@ class TelegramBot:
             
             # Check if user is shop owner
             is_owner = await self.is_shop_owner(user_id, shop_id)
-            if is_owner:
+            is_telegram_owner = await self.is_shop_owner_by_telegram_id(user_id, shop_id)
+            if is_owner or is_telegram_owner:
                 keyboard.append([InlineKeyboardButton("➕ Add Product to Category", callback_data=f"add_product_category_{shop_id}_{category_id}")])
             
             keyboard.append([InlineKeyboardButton("⬅️ Back to Categories", callback_data=f"shop_{shop_id}")])
@@ -459,7 +460,222 @@ class TelegramBot:
             logger.error(f"Error sending category products: {e}")
             await context.bot.send_message(chat_id, "❌ Error loading products.")
     
-    async def handle_add_category(self, chat_id: int, shop_id: str, user_id: int):
+    async def send_product_details(self, chat_id: int, shop_id: str, product_id: str, user_id: int, context: ContextTypes.DEFAULT_TYPE):
+        """Send product details with order option"""
+        try:
+            # Get product data
+            product_ref = self.db.collection('products').document(product_id)
+            product_doc = product_ref.get()
+            
+            if not product_doc.exists:
+                await context.bot.send_message(chat_id, "❌ Product not found.")
+                return
+            
+            product_data = product_doc.to_dict()
+            
+            # Check if product is available
+            is_available = product_data.get('isActive', True) and product_data.get('stock', 0) > 0
+            
+            text = f"🛍️ **{product_data['name']}**\n\n"
+            
+            if product_data.get('description'):
+                text += f"📝 {product_data['description']}\n\n"
+            
+            text += f"💰 **Price:** ${product_data['price']:.2f}\n"
+            text += f"📦 **Stock:** {product_data['stock']} available\n"
+            text += f"🏷️ **Category:** {product_data.get('category', 'N/A')}\n"
+            
+            if product_data.get('sku'):
+                text += f"🔖 **SKU:** {product_data['sku']}\n"
+            
+            if not is_available:
+                text += "\n❌ **Currently unavailable**"
+            
+            keyboard = []
+            
+            # Add order button if available
+            if is_available:
+                keyboard.append([InlineKeyboardButton(
+                    "🛒 Order This Item",
+                    callback_data=f"order_{shop_id}_{product_id}"
+                )])
+            
+            # Back button - find the category
+            category_name = product_data.get('category')
+            if category_name:
+                # Find category ID by name
+                categories = await self.get_shop_categories(shop_id)
+                category_id = None
+                for cat in categories:
+                    if cat['name'] == category_name:
+                        category_id = cat['id']
+                        break
+                
+                if category_id:
+                    keyboard.append([InlineKeyboardButton("⬅️ Back to Products", callback_data=f"category_{shop_id}_{category_id}")])
+                else:
+                    keyboard.append([InlineKeyboardButton("⬅️ Back to Categories", callback_data=f"shop_{shop_id}")])
+            else:
+                keyboard.append([InlineKeyboardButton("⬅️ Back to Categories", callback_data=f"shop_{shop_id}")])
+            
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            # Send with image if available
+            if product_data.get('images') and len(product_data['images']) > 0:
+                await context.bot.send_photo(
+                    chat_id=chat_id,
+                    photo=product_data['images'][0],
+                    caption=text,
+                    reply_markup=reply_markup,
+                    parse_mode='Markdown'
+                )
+            else:
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=text,
+                    reply_markup=reply_markup,
+                    parse_mode='Markdown'
+                )
+            
+        except Exception as e:
+            logger.error(f"Error sending product details: {e}")
+            await context.bot.send_message(chat_id, "❌ Error loading product details.")
+    
+    async def handle_order_request(self, chat_id: int, shop_id: str, product_id: str, user_id: int, context: ContextTypes.DEFAULT_TYPE):
+        """Handle order request for a product"""
+        try:
+            # Get product data
+            product_ref = self.db.collection('products').document(product_id)
+            product_doc = product_ref.get()
+            
+            if not product_doc.exists:
+                await context.bot.send_message(chat_id, "❌ Product not found.")
+                return
+            
+            product_data = product_doc.to_dict()
+            
+            # Check if product is available
+            if not product_data.get('isActive', True) or product_data.get('stock', 0) <= 0:
+                await context.bot.send_message(chat_id, "❌ This product is currently unavailable.")
+                return
+            
+            # Get user data
+            user = await context.bot.get_chat(user_id)
+            customer_name = f"{user.first_name} {user.last_name or ''}".strip()
+            
+            # Create order in Firebase
+            order_data = {
+                'shopId': shop_id,
+                'customerId': user.username or f"user_{user_id}",
+                'customerName': customer_name,
+                'telegramId': str(user_id),
+                'telegramUsername': user.username,
+                'items': [{
+                    'productId': product_id,
+                    'productName': product_data['name'],
+                    'quantity': 1,
+                    'price': product_data['price'],
+                    'total': product_data['price']
+                }],
+                'total': product_data['price'],
+                'deliveryMethod': 'pickup',
+                'paymentPreference': 'cash',
+                'tableNumber': f"TG-{user_id}",
+                'source': 'telegram',
+                'status': 'pending',
+                'paymentStatus': 'pending',
+                'createdAt': datetime.now(timezone.utc),
+                'updatedAt': datetime.now(timezone.utc)
+            }
+            
+            # Save order to Firebase
+            order_ref = self.db.collection('orders').add(order_data)
+            order_id = order_ref[1].id
+            
+            # Send confirmation to user
+            confirmation_text = f"✅ **Order Request Sent!**\n\n"
+            confirmation_text += f"🛍️ **Product:** {product_data['name']}\n"
+            confirmation_text += f"💰 **Price:** ${product_data['price']:.2f}\n"
+            confirmation_text += f"📋 **Order ID:** #{order_id[-6:]}\n\n"
+            confirmation_text += "📞 **Next Steps:**\n"
+            confirmation_text += "The shop owner will contact you shortly to confirm your order and arrange payment/delivery.\n\n"
+            confirmation_text += "Thank you for your order! 🙏"
+            
+            keyboard = [[InlineKeyboardButton("⬅️ Back to Product", callback_data=f"product_{shop_id}_{product_id}")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=confirmation_text,
+                reply_markup=reply_markup,
+                parse_mode='Markdown'
+            )
+            
+            # Send order notification to shop owner/cashier
+            await self.notify_shop_about_order(shop_id, order_data, order_id, context)
+            
+            logger.info(f"Order created: {order_id} by user {user_id} for product {product_id}")
+            
+        except Exception as e:
+            logger.error(f"Error handling order request: {e}")
+            await context.bot.send_message(chat_id, "❌ Error processing order. Please try again.")
+    
+    async def notify_shop_about_order(self, shop_id: str, order_data: Dict, order_id: str, context: ContextTypes.DEFAULT_TYPE):
+        """Notify shop about new order"""
+        try:
+            # Get cashier department for this shop
+            departments_ref = self.db.collection('departments').where('shopId', '==', shop_id).where('role', '==', 'cashier')
+            departments = departments_ref.stream()
+            
+            cashier_chat_id = None
+            for dept in departments:
+                dept_data = dept.to_dict()
+                cashier_chat_id = dept_data.get('telegramChatId')
+                break
+            
+            if not cashier_chat_id:
+                logger.warning(f"No cashier department found for shop {shop_id}")
+                return
+            
+            # Create order notification message
+            items_list = []
+            for item in order_data['items']:
+                items_list.append(f"• {item['productName']} × {item['quantity']} = ${item['total']:.2f}")
+            
+            items_text = '\n'.join(items_list)
+            
+            message = f"""
+🛍️ <b>New Telegram Order</b>
+
+📋 Order ID: #{order_id[-6:]}
+👤 Customer: {order_data['customerName']}
+📱 Telegram: @{order_data.get('telegramUsername', 'N/A')}
+🆔 User ID: {order_data['telegramId']}
+💰 Total: ${order_data['total']:.2f}
+🚚 Method: {order_data['deliveryMethod'].title()}
+💳 Payment: {order_data['paymentPreference'].title()}
+
+📦 <b>Items:</b>
+{items_text}
+
+⏰ Ordered: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+<i>Please approve or reject this order</i>
+            """.strip()
+            
+            # Send notification to cashier
+            await context.bot.send_message(
+                chat_id=cashier_chat_id,
+                text=message,
+                parse_mode='HTML'
+            )
+            
+            logger.info(f"Order notification sent to cashier chat {cashier_chat_id}")
+            
+        except Exception as e:
+            logger.error(f"Error notifying shop about order: {e}")
+    
+    async def handle_add_category(self, chat_id: int, shop_id: str, user_id: int, context: ContextTypes.DEFAULT_TYPE):
         """Handle add category request"""
         try:
             # Verify user is shop owner
@@ -493,7 +709,7 @@ class TelegramBot:
             logger.error(f"Error handling add category: {e}")
             await context.bot.send_message(chat_id, "❌ Error starting category creation.")
     
-    async def handle_add_product(self, chat_id: int, shop_id: str, user_id: int, category_id: str = None):
+    async def handle_add_product(self, chat_id: int, shop_id: str, user_id: int, context: ContextTypes.DEFAULT_TYPE, category_id: str = None):
         """Handle add product request"""
         try:
             # Verify user is shop owner
@@ -595,13 +811,13 @@ class TelegramBot:
         # Check if user is adding a category
         adding_category = self.user_cache.get_user_session(user_id, 'adding_category')
         if adding_category:
-            await self.process_category_creation(chat_id, user_id, text, adding_category)
+            await self.process_category_creation(chat_id, user_id, text, adding_category, context)
             return
         
         # Check if user is adding a product
         adding_product = self.user_cache.get_user_session(user_id, 'adding_product')
         if adding_product:
-            await self.process_product_creation(chat_id, user_id, text, adding_product)
+            await self.process_product_creation(chat_id, user_id, text, adding_product, context)
             return
         
         # Default response for unrecognized text
@@ -610,7 +826,7 @@ class TelegramBot:
             text="👋 Use /start to begin shopping or browse available shops!"
         )
     
-    async def process_category_creation(self, chat_id: int, user_id: int, text: str, session_data: Dict):
+    async def process_category_creation(self, chat_id: int, user_id: int, text: str, session_data: Dict, context: ContextTypes.DEFAULT_TYPE):
         """Process category creation steps"""
         try:
             step = session_data.get('step')
@@ -668,14 +884,14 @@ class TelegramBot:
                 else:
                     session_data['icon'] = '📦'
                 
-                await self.create_category(chat_id, user_id, session_data)
+                await self.create_category(chat_id, user_id, session_data, context)
                 
         except Exception as e:
             logger.error(f"Error processing category creation: {e}")
             await context.bot.send_message(chat_id, "❌ Error creating category. Please try again.")
             self.user_cache.clear_user_session(user_id, 'adding_category')
     
-    async def process_product_creation(self, chat_id: int, user_id: int, text: str, session_data: Dict):
+    async def process_product_creation(self, chat_id: int, user_id: int, text: str, session_data: Dict, context: ContextTypes.DEFAULT_TYPE):
         """Process product creation steps"""
         try:
             step = session_data.get('step')
@@ -757,7 +973,7 @@ class TelegramBot:
                         raise ValueError("Stock cannot be negative")
                     
                     session_data['stock'] = stock
-                    await self.create_product(chat_id, user_id, session_data)
+                    await self.create_product(chat_id, user_id, session_data, context)
                     
                 except ValueError:
                     await context.bot.send_message(
@@ -770,7 +986,7 @@ class TelegramBot:
             await context.bot.send_message(chat_id, "❌ Error creating product. Please try again.")
             self.user_cache.clear_user_session(user_id, 'adding_product')
     
-    async def create_category(self, chat_id: int, user_id: int, session_data: Dict):
+    async def create_category(self, chat_id: int, user_id: int, session_data: Dict, context: ContextTypes.DEFAULT_TYPE):
         """Create category in Firebase"""
         try:
             shop_id = session_data['shop_id']
@@ -823,7 +1039,7 @@ class TelegramBot:
             await context.bot.send_message(chat_id, "❌ Error creating category. Please try again.")
             self.user_cache.clear_user_session(user_id, 'adding_category')
     
-    async def create_product(self, chat_id: int, user_id: int, session_data: Dict):
+    async def create_product(self, chat_id: int, user_id: int, session_data: Dict, context: ContextTypes.DEFAULT_TYPE):
         """Create product in Firebase"""
         try:
             shop_id = session_data['shop_id']
@@ -895,6 +1111,88 @@ class TelegramBot:
             logger.error(f"Error getting user Firebase UID: {e}")
             return str(telegram_id)
     
+    async def handle_shop_stats(self, chat_id: int, shop_id: str, user_id: int, context: ContextTypes.DEFAULT_TYPE):
+        """Handle shop statistics request"""
+        try:
+            # Verify user is shop owner
+            is_owner = await self.is_shop_owner(user_id, shop_id)
+            is_telegram_owner = await self.is_shop_owner_by_telegram_id(user_id, shop_id)
+            
+            if not (is_owner or is_telegram_owner):
+                await context.bot.send_message(chat_id, "❌ You don't have permission to view shop statistics.")
+                return
+            
+            # Get shop statistics
+            products_count = len(await self.get_shop_products(shop_id))
+            categories_count = len(await self.get_shop_categories(shop_id))
+            orders_count = await self.get_shop_orders_count(shop_id)
+            
+            text = f"📊 **Shop Statistics**\n\n"
+            text += f"📂 Categories: {categories_count}\n"
+            text += f"🛍️ Products: {products_count}\n"
+            text += f"📦 Total Orders: {orders_count}\n"
+            text += f"📅 Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+            
+            keyboard = [[InlineKeyboardButton("⬅️ Back to Shop", callback_data=f"shop_{shop_id}")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=text,
+                reply_markup=reply_markup,
+                parse_mode='Markdown'
+            )
+            
+        except Exception as e:
+            logger.error(f"Error handling shop stats: {e}")
+            await context.bot.send_message(chat_id, "❌ Error loading shop statistics.")
+    
+    async def get_shop_products(self, shop_id: str) -> List[Dict]:
+        """Get all products for a shop"""
+        try:
+            products_ref = self.db.collection('products').where('shopId', '==', shop_id)
+            products = products_ref.stream()
+            
+            product_list = []
+            for product in products:
+                product_data = product.to_dict()
+                product_data['id'] = product.id
+                product_list.append(product_data)
+            
+            return product_list
+            
+        except Exception as e:
+            logger.error(f"Error getting shop products: {e}")
+            return []
+    
+    async def get_shop_orders_count(self, shop_id: str) -> int:
+        """Get total orders count for a shop"""
+        try:
+            orders_ref = self.db.collection('orders').where('shopId', '==', shop_id)
+            orders = orders_ref.stream()
+            
+            return len(list(orders))
+            
+        except Exception as e:
+            logger.error(f"Error getting shop orders count: {e}")
+            return 0
+    
+    async def handle_shop_settings(self, chat_id: int, shop_id: str, user_id: int, context: ContextTypes.DEFAULT_TYPE):
+        """Handle shop settings request"""
+        await context.bot.send_message(chat_id, "⚙️ Shop settings feature coming soon!")
+    
+    async def handle_manage_staff(self, chat_id: int, shop_id: str, user_id: int, context: ContextTypes.DEFAULT_TYPE):
+        """Handle manage staff request"""
+        await context.bot.send_message(chat_id, "👥 Staff management feature coming soon!")
+    
+    async def handle_view_analytics(self, chat_id: int, shop_id: str, user_id: int, context: ContextTypes.DEFAULT_TYPE):
+        """Handle view analytics request"""
+        await context.bot.send_message(chat_id, "📈 Analytics feature coming soon!")
+    
+    async def handle_send_announcement(self, chat_id: int, shop_id: str, user_id: int, context: ContextTypes.DEFAULT_TYPE):
+        """Handle send announcement request"""
+        await context.bot.send_message(chat_id, "🔔 Announcement feature coming soon!")
+    
     async def reload_shop_owners(self):
         """Reload shop owners cache"""
         await self.load_shop_owners()
@@ -910,13 +1208,13 @@ class TelegramBot:
         
         try:
             if data == "refresh_shops":
-                await self.send_welcome_message(chat_id, update.effective_user.first_name)
+                await self.send_welcome_message(chat_id, update.effective_user.first_name, context)
                 
             elif data.startswith("shop_"):
                 shop_id = data.split("_", 1)[1]
                 shop_data = await self.get_shop_data(shop_id)
                 if shop_data:
-                    await self.send_shop_menu(chat_id, shop_data, user_id)
+                    await self.send_shop_menu(chat_id, shop_data, user_id, context)
                 else:
                     await context.bot.send_message(chat_id, "❌ Shop not found.")
                     
@@ -925,42 +1223,56 @@ class TelegramBot:
                 if len(parts) >= 3:
                     shop_id = parts[1]
                     category_id = parts[2]
-                    await self.send_category_products(chat_id, shop_id, category_id, user_id)
+                    await self.send_category_products(chat_id, shop_id, category_id, user_id, context)
+                    
+            elif data.startswith("product_"):
+                parts = data.split("_")
+                if len(parts) >= 3:
+                    shop_id = parts[1]
+                    product_id = parts[2]
+                    await self.send_product_details(chat_id, shop_id, product_id, user_id, context)
+                    
+            elif data.startswith("order_"):
+                parts = data.split("_")
+                if len(parts) >= 3:
+                    shop_id = parts[1]
+                    product_id = parts[2]
+                    await self.handle_order_request(chat_id, shop_id, product_id, user_id, context)
                     
             elif data.startswith("add_category_"):
                 shop_id = data.split("_", 2)[2]
-                await self.handle_add_category(chat_id, shop_id, user_id)
+                await self.handle_add_category(chat_id, shop_id, user_id, context)
                 
             elif data.startswith("add_product_category_"):
                 parts = data.split("_")
                 if len(parts) >= 4:
                     shop_id = parts[3]
                     category_id = parts[4]
-                    await self.handle_add_product(chat_id, shop_id, user_id, category_id)
+                    await self.handle_add_product(chat_id, shop_id, user_id, context, category_id)
                     
             elif data.startswith("add_product_"):
                 shop_id = data.split("_", 2)[2]
-                await self.handle_add_product(chat_id, shop_id, user_id)
+                await self.handle_add_product(chat_id, shop_id, user_id, context)
                 
             elif data.startswith("shop_stats_"):
                 shop_id = data.split("_", 2)[2]
-                await self.handle_shop_stats(chat_id, shop_id, user_id)
+                await self.handle_shop_stats(chat_id, shop_id, user_id, context)
                 
             elif data.startswith("shop_settings_"):
                 shop_id = data.split("_", 2)[2]
-                await self.handle_shop_settings(chat_id, shop_id, user_id)
+                await self.handle_shop_settings(chat_id, shop_id, user_id, context)
                 
             elif data.startswith("manage_staff_"):
                 shop_id = data.split("_", 2)[2]
-                await self.handle_manage_staff(chat_id, shop_id, user_id)
+                await self.handle_manage_staff(chat_id, shop_id, user_id, context)
                 
             elif data.startswith("view_analytics_"):
                 shop_id = data.split("_", 2)[2]
-                await self.handle_view_analytics(chat_id, shop_id, user_id)
+                await self.handle_view_analytics(chat_id, shop_id, user_id, context)
                 
             elif data.startswith("send_announcement_"):
                 shop_id = data.split("_", 2)[2]
-                await self.handle_send_announcement(chat_id, shop_id, user_id)
+                await self.handle_send_announcement(chat_id, shop_id, user_id, context)
                 
             elif data.startswith("skip_category_desc_"):
                 shop_id = data.split("_", 3)[3]
@@ -987,7 +1299,7 @@ class TelegramBot:
                 adding_category = self.user_cache.get_user_session(user_id, 'adding_category')
                 if adding_category:
                     adding_category['icon'] = '📦'
-                    await self.create_category(chat_id, user_id, adding_category)
+                    await self.create_category(chat_id, user_id, adding_category, context)
                     
             elif data.startswith("skip_product_desc_"):
                 shop_id = data.split("_", 3)[3]
@@ -1034,6 +1346,7 @@ class TelegramBot:
             
             logger.info("🤖 Multi-Shop Telegram Bot started successfully!")
             logger.info("📱 Bot will handle user caching and shop navigation")
+            logger.info("🛒 Order processing is now enabled")
             logger.info("🔄 Press Ctrl+C to stop the bot")
             
             # Run the bot
