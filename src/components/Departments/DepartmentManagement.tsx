@@ -284,12 +284,13 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
   const [saving, setSaving] = useState(false);
 
   const DEPARTMENT_EMOJIS = [
-    '🏢', '👨‍🍳', '🍹', '💰', '👨‍💼', '🍕', '🥗', '🍰', '☕', '🍽️', '📋',
+    '🏢', '👨‍🍳', '🍹', '💰', '👨‍💼', '👑', '🍕', '🥗', '🍰', '☕', '🍽️', '📋',
     '🔧', '🧹', '💰', '📞', '🚚', '🛒', '📦', '🎯', '⚡', '🔥'
   ];
 
   const getRoleIcon = (role: string) => {
     switch (role) {
+      case 'owner': return '👑';
       case 'cashier': return '💰';
       case 'delivery': return '🚚';
       case 'admin': return '👨‍💼';
@@ -301,6 +302,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
 
   const getRoleName = (role: string) => {
     switch (role) {
+      case 'owner': return 'Shop Owner';
       case 'cashier': return 'Cashier';
       case 'delivery': return 'Delivery';
       case 'admin': return 'Admin';
@@ -436,7 +438,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
             <select
               value={role}
               onChange={(e) => {
-                const newRole = e.target.value as 'cashier' | 'delivery' | 'admin' | 'sales';
+                const newRole = e.target.value as 'owner' | 'cashier' | 'delivery' | 'admin' | 'sales';
                 setRole(newRole);
                 setName(getRoleName(newRole));
                 setIcon(getRoleIcon(newRole));
@@ -444,6 +446,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
               required
             >
+              <option value="owner">Shop Owner</option>
               <option value="cashier">Cashier</option>
               <option value="delivery">Delivery</option>
               <option value="admin">Admin</option>
@@ -451,6 +454,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
               <option value="shop">Shop Channel</option>
             </select>
             <p className="text-xs text-gray-500 mt-1">
+              {role === 'owner' && 'Personal Telegram ID for shop owner admin panel access'}
               {role === 'cashier' && 'Receives payment confirmations, order approvals, and waiter calls'}
               {role === 'delivery' && 'Receives delivery assignments and notifications'}
               {role === 'admin' && 'Receives day reports and administrative notifications'}
@@ -461,7 +465,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              {role === 'cashier' ? 'Cashier' : role === 'admin' ? 'Admin' : role === 'shop' ? 'Shop Channel' : 'Department'} Telegram Chat ID *
+              {role === 'owner' ? 'Personal Telegram ID' : role === 'cashier' ? 'Cashier' : role === 'admin' ? 'Admin' : role === 'shop' ? 'Shop Channel' : 'Department'} Telegram {role === 'owner' ? 'ID' : 'Chat ID'} *
             </label>
             <div className="space-y-2">
               <div className="flex space-x-2">
@@ -470,7 +474,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
                   value={telegramChatId}
                   onChange={(e) => setTelegramChatId(e.target.value)}
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
-                  placeholder="e.g., -1002701066037"
+                  placeholder={role === 'owner' ? 'e.g., 650966545' : 'e.g., -1002701066037'}
                   required
                 />
                 <button
@@ -482,6 +486,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
                 </button>
               </div>
               <p className="text-xs text-gray-500">
+                {role === 'owner' && 'Personal Telegram ID for admin panel access (get from @userinfobot)'}
                 {role === 'cashier' && 'This chat will receive payment confirmations, order approvals, and waiter calls'}
                 {role === 'delivery' && 'This chat will receive delivery assignments and notifications'}
                 {role === 'admin' && 'This chat will receive day reports and administrative notifications'}
@@ -567,6 +572,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
           <div className="bg-blue-50 p-3 rounded-lg">
             <h4 className="font-medium text-blue-800 mb-1">How to get Telegram Chat ID:</h4>
             <ul className="text-xs text-blue-700 space-y-1">
+              <li>• <strong>For Owner Role:</strong> Message @userinfobot and copy your personal ID (e.g., 650966545)</li>
               <li>• Create a Telegram group for this department</li>
               <li>• Add @userinfobot to the group</li>
               <li>• Send /start command in the group</li>

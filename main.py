@@ -104,7 +104,9 @@ class TelegramBot:
         self.bot_token = bot_token
         self.user_cache = UserCache()
         self.db = None
+        self.shop_owners = {}  # Cache for shop owners: {shop_id: owner_telegram_id}
         self.initialize_firebase()
+        asyncio.create_task(self.load_shop_owners())
     
     def initialize_firebase(self):
         """Initialize Firebase connection"""
@@ -119,6 +121,34 @@ class TelegramBot:
         except Exception as e:
             logger.error(f"Failed to initialize Firebase: {e}")
             sys.exit(1)
+    
+    async def load_shop_owners(self):
+        """Load shop owners from departments collection"""
+        try:
+            # Get all owner departments
+            departments_ref = self.db.collection('departments').where('role', '==', 'owner')
+            departments = departments_ref.stream()
+            
+            for dept in departments:
+                dept_data = dept.to_dict()
+                shop_id = dept_data.get('shopId')
+                telegram_id = dept_data.get('telegramChatId')  # For owner role, this is personal ID
+                
+                if shop_id and telegram_id:
+                    try:
+                        # Convert to int and store
+                        self.shop_owners[shop_id] = int(telegram_id)
+                        logger.info(f"Loaded shop owner: shop {shop_id} -> owner {telegram_id}")
+                    except ValueError:
+                        logger.warning(f"Invalid owner Telegram ID: {telegram_id}")
+            
+            logger.info(f"Loaded {len(self.shop_owners)} shop owners")
+        except Exception as e:
+            logger.error(f"Error loading shop owners: {e}")
+    
+    async def is_shop_owner_by_telegram_id(self, telegram_id: int, shop_id: str) -> bool:
+        """Check if Telegram user is the owner of the shop"""
+        return self.shop_owners.get(shop_id) == telegram_id
     
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command"""
@@ -250,8 +280,9 @@ class TelegramBot:
             
             # Check if user is shop owner for admin functions
             is_owner = await self.is_shop_owner(user_id, shop_data['id'])
+            is_telegram_owner = await self.is_shop_owner_by_telegram_id(user_id, shop_data['id'])
             
-            if is_owner:
+            if is_owner or is_telegram_owner:
                 text += "👑 **Admin Panel**\n\n"
             
             if not categories:
@@ -271,13 +302,17 @@ class TelegramBot:
                 )])
             
             # Admin buttons for shop owners
-            if is_owner:
+            if is_owner or is_telegram_owner:
                 admin_row = []
                 admin_row.append(InlineKeyboardButton("➕ Add Category", callback_data=f"add_category_{shop_data['id']}"))
                 admin_row.append(InlineKeyboardButton("➕ Add Product", callback_data=f"add_product_{shop_data['id']}"))
                 keyboard.append(admin_row)
                 
                 keyboard.append([InlineKeyboardButton("📊 Shop Stats", callback_data=f"shop_stats_{shop_data['id']}")])
+                keyboard.append([InlineKeyboardButton("⚙️ Shop Settings", callback_data=f"shop_settings_{shop_data['id']}")])
+                keyboard.append([InlineKeyboardButton("👥 Manage Staff", callback_data=f"manage_staff_{shop_data['id']}")])
+                keyboard.append([InlineKeyboardButton("📈 View Analytics", callback_data=f"view_analytics_{shop_data['id']}")])
+                keyboard.append([InlineKeyboardButton("🔔 Send Announcement", callback_data=f"send_announcement_{shop_data['id']}")])
             
             keyboard.append([InlineKeyboardButton("🔄 Refresh Menu", callback_data=f"shop_{shop_data['id']}")])
             keyboard.append([InlineKeyboardButton("⬅️ Back to Shops", callback_data="refresh_shops")])
@@ -428,7 +463,10 @@ class TelegramBot:
         """Handle add category request"""
         try:
             # Verify user is shop owner
-            if not await self.is_shop_owner(user_id, shop_id):
+            is_owner = await self.is_shop_owner(user_id, shop_id)
+            is_telegram_owner = await self.is_shop_owner_by_telegram_id(user_id, shop_id)
+            
+            if not (is_owner or is_telegram_owner):
                 await context.bot.send_message(chat_id, "❌ You don't have permission to add categories to this shop.")
                 return
             
@@ -459,7 +497,10 @@ class TelegramBot:
         """Handle add product request"""
         try:
             # Verify user is shop owner
-            if not await self.is_shop_owner(user_id, shop_id):
+            is_owner = await self.is_shop_owner(user_id, shop_id)
+            is_telegram_owner = await self.is_shop_owner_by_telegram_id(user_id, shop_id)
+            
+            if not (is_owner or is_telegram_owner):
                 await context.bot.send_message(chat_id, "❌ You don't have permission to add products to this shop.")
                 return
             
@@ -896,6 +937,26 @@ class TelegramBot:
             elif data.startswith("add_product_"):
                 shop_id = data.split("_", 2)[2]
                 await self.handle_add_product(chat_id, shop_id, user_id)
+                
+            elif data.startswith("shop_stats_"):
+                shop_id = data.split("_", 2)[2]
+                await self.handle_shop_stats(chat_id, shop_id, user_id)
+                
+            elif data.startswith("shop_settings_"):
+                shop_id = data.split("_", 2)[2]
+                await self.handle_shop_settings(chat_id, shop_id, user_id)
+                
+            elif data.startswith("manage_staff_"):
+                shop_id = data.split("_", 2)[2]
+                await self.handle_manage_staff(chat_id, shop_id, user_id)
+                
+            elif data.startswith("view_analytics_"):
+                shop_id = data.split("_", 2)[2]
+                await self.handle_view_analytics(chat_id, shop_id, user_id)
+                
+            elif data.startswith("send_announcement_"):
+                shop_id = data.split("_", 2)[2]
+                await self.handle_send_announcement(chat_id, shop_id, user_id)
                 
             elif data.startswith("skip_category_desc_"):
                 shop_id = data.split("_", 3)[3]
