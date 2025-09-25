@@ -11,7 +11,8 @@ export default function AuthForm() {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    displayName: ''
+    displayName: '',
+    telegramId: ''
   });
 
   const { signIn, signUp } = useAuth();
@@ -23,7 +24,7 @@ export default function AuthForm() {
 
     try {
       if (isSignUp) {
-        await signUp(formData.email, formData.password, formData.displayName);
+        await signUp(formData.email, formData.password, formData.displayName, formData.telegramId);
       } else {
         await signIn(formData.email, formData.password);
       }
@@ -83,6 +84,30 @@ export default function AuthForm() {
               </div>
             )}
 
+            {isSignUp && (
+              <div>
+                <label htmlFor="telegramId" className="block text-sm font-medium text-gray-700 mb-2">
+                  Telegram ID (Optional)
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <User className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    id="telegramId"
+                    name="telegramId"
+                    type="number"
+                    value={formData.telegramId}
+                    onChange={handleInputChange}
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
+                    placeholder="Enter your Telegram ID (optional)"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  You can get your Telegram ID by messaging @userinfobot on Telegram
+                </p>
+              </div>
+            )}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                 Email Address

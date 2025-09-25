@@ -25,18 +25,26 @@ export function useAuth() {
     }
   };
 
-  const signUp = async (email: string, password: string, displayName: string) => {
+  const signUp = async (email: string, password: string, displayName: string, telegramId?: string) => {
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password);
       
-      // Save user profile to Firestore
-      await setDoc(doc(db, 'users', result.user.uid), {
+      // Prepare user data
+      const userData: any = {
         uid: result.user.uid,
         email: result.user.email,
         displayName,
         createdAt: new Date(),
         updatedAt: new Date()
-      });
+      };
+
+      // Add Telegram ID if provided
+      if (telegramId && telegramId.trim()) {
+        userData.telegramId = parseInt(telegramId.trim());
+      }
+
+      // Save user profile to Firestore
+      await setDoc(doc(db, 'users', result.user.uid), userData);
 
       return result.user;
     } catch (error) {

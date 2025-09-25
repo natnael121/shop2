@@ -65,7 +65,8 @@ export default function SettingsPanel({ selectedShop }: SettingsPanelProps) {
     displayName: user?.email?.split('@')[0] || '',
     email: user?.email || '',
     phone: '',
-    bio: ''
+    bio: '',
+    telegramId: ''
   });
 
   const [showApiKey, setShowApiKey] = useState(false);
@@ -103,7 +104,8 @@ export default function SettingsPanel({ selectedShop }: SettingsPanelProps) {
           displayName: data.displayName || '',
           email: data.email || '',
           phone: data.phone || '',
-          bio: data.bio || ''
+          bio: data.bio || '',
+          telegramId: data.telegramId ? data.telegramId.toString() : ''
         });
         if (data.settings) {
           setUserSettings(data.settings);
@@ -152,6 +154,9 @@ export default function SettingsPanel({ selectedShop }: SettingsPanelProps) {
         displayName: profileData.displayName,
         phone: profileData.phone,
         bio: profileData.bio,
+        ...(profileData.telegramId && profileData.telegramId.trim() && {
+          telegramId: parseInt(profileData.telegramId.trim())
+        }),
         settings: userSettings,
         telegramBotToken: telegramBotToken,
         updatedAt: new Date()
@@ -334,6 +339,21 @@ export default function SettingsPanel({ selectedShop }: SettingsPanelProps) {
                     onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Telegram ID
+                  </label>
+                  <input
+                    type="number"
+                    value={profileData.telegramId}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, telegramId: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter your Telegram ID"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Get your Telegram ID by messaging @userinfobot on Telegram
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">

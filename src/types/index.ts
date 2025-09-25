@@ -2,6 +2,7 @@ export interface User {
   uid: string;
   email: string;
   displayName?: string;
+  telegramId?: number;
   role?: 'shop_admin' | 'customer';
   userType?: 'admin' | 'customer';
   createdAt: Date;
