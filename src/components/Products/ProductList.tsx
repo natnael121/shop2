@@ -3,6 +3,7 @@ import { Package, Plus, Edit, Trash2, Search, Filter, Image as ImageIcon, Megaph
 import { Product } from '../../types';
 import CreateProductModal from './CreateProductModal';
 import EditProductModal from './EditProductModal';
+import { PromotionModal } from './PromotionModal';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../hooks/useAuth';
@@ -31,6 +32,7 @@ export default function ProductList({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [promotingProducts, setPromotingProducts] = useState<Set<string>>(new Set());
+  const [promotingProduct, setPromotingProduct] = useState<Product | null>(null);
 
   const categories = Array.from(new Set(products.map(p => p.category))).filter(Boolean);
   
@@ -65,15 +67,29 @@ export default function ProductList({
     }
   };
 
-  const handlePromoteProduct = async (product: Product) => {
+  const handlePromoteProduct = (product: Product) => {
+    setPromotingProduct(product);
+  };
+
+  const handlePromoteSubmit = async (promotionData: {
+    product: Product;
+    customMessage?: string;
+    promotionImages?: string[];
+    scheduledDate?: Date;
+    isScheduled: boolean;
+    promotionTitle?: string;
+    discountPercentage?: number;
+    validUntil?: Date;
+    tags?: string[];
+  }) => {
     if (!user?.uid || !selectedShopId) {
       alert('Unable to promote product. Please ensure you are logged in and have selected a shop.');
       return;
     }
 
-    if (promotingProducts.has(product.id)) return;
+    if (promotingProducts.has(promotionData.product.id)) return;
 
-    setPromotingProducts(prev => new Set(prev).add(product.id));
+    setPromotingProducts(prev => new Set(prev).add(promotionData.product.id));
 
     try {
       // Get bot token
@@ -114,16 +130,21 @@ export default function ProductList({
       const shopName = shopDoc.exists() ? shopDoc.data().name : 'Shop';
       const productLink = `${window.location.origin}/shop/${encodeURIComponent(shopName)}`;
 
-      await telegram.promoteProduct(product, shopChatId, productLink);
+      // Enhanced promotion with all the new data
+      await telegram.promoteProductEnhanced(promotionData, shopChatId, productLink);
       
-      alert('Product promoted successfully to shop channel!');
+      if (promotionData.isScheduled && promotionData.scheduledDate) {
+        alert(`Promotion scheduled successfully for ${promotionData.scheduledDate.toLocaleString()}!`);
+      } else {
+        alert('Product promoted successfully to shop channel!');
+      }
     } catch (error) {
       console.error('Error promoting product:', error);
       alert(`Failed to promote product: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setPromotingProducts(prev => {
         const newSet = new Set(prev);
-        newSet.delete(product.id);
+        newSet.delete(promotionData.product.id);
         return newSet;
       });
     }
@@ -216,13 +237,15 @@ export default function ProductList({
                   <button
                     onClick={() => handlePromoteProduct(product)}
                     disabled={promotingProducts.has(product.id)}
-                    className="p-1 text-gray-400 hover:text-green-600 transition-colors duration-200 disabled:opacity-50"
+                    className="p-1 text-gray-400 hover:text-green-600 transition-colors duration-200 disabled:opacity-50 relative"
                     title="Promote to Shop Channel"
                   >
                     {promotingProducts.has(product.id) ? (
                       <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
                     ) : (
-                      <Megaphone className="h-4 w-4" />
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                      </svg>
                     )}
                   </button>
                   <button 
@@ -286,6 +309,14 @@ export default function ProductList({
       />
 
         {editingProduct && (
+      {promotingProduct && (
+        <PromotionModal
+          product={promotingProduct}
+          onClose={() => setPromotingProduct(null)}
+          onPromote={handlePromoteSubmit}
+        />
+      )}
+
   <EditProductModal
     product={editingProduct}
     onClose={() => setEditingProduct(null)}

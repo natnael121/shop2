@@ -1178,6 +1178,140 @@ ${categoryTag} ${subcategoryTag}
     }
   }
 }
+  async promoteProductEnhanced(promotionData: {
+    product: any;
+    customMessage?: string;
+    promotionImages?: string[];
+    scheduledDate?: Date;
+    isScheduled: boolean;
+    promotionTitle?: string;
+    discountPercentage?: number;
+    validUntil?: Date;
+    tags?: string[];
+  }, chatId: string, shopLink: string): Promise<void> {
+    try {
+      const { product } = promotionData;
+      
+      // If scheduled, store the promotion for later (you'd implement a scheduler)
+      if (promotionData.isScheduled && promotionData.scheduledDate) {
+        // For now, we'll just log it. In a real implementation, you'd store this in a database
+        // and have a scheduler service that sends it at the right time
+        console.log('Scheduled promotion:', {
+          ...promotionData,
+          chatId,
+          shopLink,
+          scheduledFor: promotionData.scheduledDate
+        });
+        
+        // You could store this in Firebase and use Cloud Functions with scheduled triggers
+        // For demo purposes, we'll send it immediately with a note about scheduling
+        const scheduleNote = `\n\n⏰ <i>Originally scheduled for ${promotionData.scheduledDate.toLocaleString()}</i>`;
+      }
+      
+      // Build enhanced promotion message
+      const discountText = promotionData.discountPercentage && promotionData.discountPercentage > 0 
+        ? `\n💥 <b>${promotionData.discountPercentage}% OFF!</b>` 
+        : '';
+      
+      const originalPrice = promotionData.discountPercentage && promotionData.discountPercentage > 0 
+        ? `\n<s>$${product.price.toFixed(2)}</s> ` 
+        : '';
+      
+      const discountedPrice = promotionData.discountPercentage && promotionData.discountPercentage > 0 
+        ? `<b>$${(product.price * (1 - promotionData.discountPercentage / 100)).toFixed(2)}</b>` 
+        : `<b>$${product.price.toFixed(2)}</b>`;
+      
+      const validUntilText = promotionData.validUntil 
+        ? `\n⏰ <b>Valid until:</b> ${promotionData.validUntil.toLocaleDateString()}` 
+        : '';
+      
+      const categoryTag = product.category ? `#${product.category.toLowerCase().replace(/\s+/g, '')}` : '';
+      const subcategoryTag = product.subcategory ? `#${product.subcategory.toLowerCase().replace(/\s+/g, '')}` : '';
+      const customTags = promotionData.tags ? promotionData.tags.join(' ') : '';
+      const allTags = [categoryTag, subcategoryTag, customTags].filter(Boolean).join(' ');
+      
+      const message = `
+${promotionData.promotionTitle || '🔥 Featured Product'}${discountText}
+
+🛍️ <b>${product.name}</b>
+
+${promotionData.customMessage || product.description}
+
+💰 <b>Price:</b> ${originalPrice}${discountedPrice}
+📦 <b>Available:</b> ${product.stock} in stock
+${product.sku ? `🏷️ <b>SKU:</b> ${product.sku}` : ''}${validUntilText}
+
+🛒 <b>Order Now:</b> <a href="${shopLink}">Visit Our Shop</a>
+
+📱 <b>Quick Order:</b> Reply with "ORDER ${product.name}" to place an order
+
+${allTags}
+
+<i>🚀 ${promotionData.discountPercentage ? 'Limited time discount' : 'Don\'t miss out on this amazing product'}!</i>
+      `.trim();
+
+      // Use promotion images if available, otherwise fall back to product images
+      const imagesToUse = promotionData.promotionImages && promotionData.promotionImages.length > 0 
+        ? promotionData.promotionImages 
+        : product.images;
+
+      if (imagesToUse && imagesToUse.length > 0) {
+        if (imagesToUse.length === 1) {
+          // Send single photo with caption
+          const response = await fetch(`https://api.telegram.org/bot${this.botToken}/sendPhoto`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              chat_id: chatId,
+              photo: imagesToUse[0],
+              caption: message,
+              parse_mode: 'HTML'
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Telegram API error: ${response.status}`);
+          }
+        } else {
+          // Send media group for multiple images
+          const media = imagesToUse.slice(0, 10).map((imageUrl, index) => ({
+            type: 'photo',
+            media: imageUrl,
+            caption: index === 0 ? message : undefined,
+            parse_mode: index === 0 ? 'HTML' : undefined
+          }));
+
+          const response = await fetch(`https://api.telegram.org/bot${this.botToken}/sendMediaGroup`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              chat_id: chatId,
+              media: media
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Telegram API error: ${response.status}`);
+          }
+        }
+      } else {
+        // Send text message only
+        await this.sendMessage({
+          chat_id: chatId,
+          text: message,
+          parse_mode: 'HTML'
+        });
+      }
+    } catch (error) {
+      console.error('Failed to promote product to Telegram:', error);
+      throw error;
+    }
+  }
+
 
 export { TelegramService };
 export default TelegramService;
