@@ -1251,7 +1251,7 @@ ${allTags}
 
       // Use promotion images if available, otherwise fall back to product images
       const imagesToUse = promotionData.promotionImages && promotionData.promotionImages.length > 0 
-        ? promotionData.promotionImages 
+        ? [...(product.images || []), ...promotionData.promotionImages]
         : product.images;
 
       if (imagesToUse && imagesToUse.length > 0) {
