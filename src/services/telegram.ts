@@ -1177,7 +1177,6 @@ ${categoryTag} ${subcategoryTag}
       throw error;
     }
   }
-}
   async promoteProductEnhanced(promotionData: {
     product: any;
     customMessage?: string;
@@ -1311,6 +1310,7 @@ ${allTags}
       throw error;
     }
   }
+}
 
 
 export { TelegramService };

@@ -306,7 +306,15 @@ export default function ProductList({
         selectedShopId={selectedShopId}
       />
 
-        {editingProduct && (
+      {editingProduct && (
+        <EditProductModal
+          product={editingProduct}
+          onClose={() => setEditingProduct(null)}
+          onSubmit={handleUpdateProduct}
+          selectedShopId={selectedShopId}
+        />
+      )}
+
       {promotingProduct && (
         <PromotionModal
           product={promotingProduct}
@@ -314,16 +322,6 @@ export default function ProductList({
           onPromote={handlePromoteSubmit}
         />
       )}
-
-  <EditProductModal
-    product={editingProduct}
-    onClose={() => setEditingProduct(null)}
-    onSubmit={handleUpdateProduct}
-    selectedShopId={selectedShopId}
-  />
-)}
-
-      )
     </div>
   );
 }
