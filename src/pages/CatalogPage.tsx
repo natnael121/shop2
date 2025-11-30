@@ -85,6 +85,9 @@ export default function CatalogPage({}: CatalogPageProps) {
   // Telegram user state
   const [telegramUserInfo, setTelegramUserInfo] = useState<any>(null);
 
+  // Categories state
+  const [categoriesWithData, setCategoriesWithData] = useState<Array<{name: string; icon?: string; iconImage?: string; color?: string}>>([]);
+
   useEffect(() => {
     if (shopName) {
       loadShopAndProducts();
@@ -197,14 +200,14 @@ export default function CatalogPage({}: CatalogPageProps) {
         collection(db, 'shops'),
         where('isActive', '==', true)
       );
-      
+
       const shopsSnapshot = await getDocs(shopsQuery);
-      
+
       // Filter by shop name (case-insensitive)
-      const matchingShops = shopsSnapshot.docs.filter(doc => 
+      const matchingShops = shopsSnapshot.docs.filter(doc =>
         doc.data().name.toLowerCase() === shopName?.toLowerCase()
       );
-      
+
       if (matchingShops.length === 0) {
         setError('Shop not found or inactive');
         setLoading(false);
@@ -236,6 +239,26 @@ export default function CatalogPage({}: CatalogPageProps) {
       })) as Product[];
 
       setProducts(productsData);
+
+      // Load categories with their icons/images
+      const categoriesQuery = query(
+        collection(db, 'categories'),
+        where('shopId', '==', shopData.id)
+      );
+
+      const categoriesSnapshot = await getDocs(categoriesQuery);
+      const categoriesData = categoriesSnapshot.docs.map(doc => ({
+        name: doc.data().name,
+        icon: doc.data().icon,
+        iconImage: doc.data().iconImage,
+        iconType: doc.data().iconType,
+        color: doc.data().color,
+        order: doc.data().order || 0
+      }));
+
+      // Sort by order
+      categoriesData.sort((a, b) => a.order - b.order);
+      setCategoriesWithData(categoriesData);
     } catch (err) {
       console.error('Error loading shop and products:', err);
       setError('Failed to load shop catalog');
@@ -608,24 +631,59 @@ export default function CatalogPage({}: CatalogPageProps) {
       {/* Telegram User Info Debug (only in development) */}
       {process.env.NODE_ENV === 'development' && telegramUserInfo && (
         <div className="bg-blue-100 border border-blue-300 p-2 text-xs text-blue-800">
-          <strong>Telegram User:</strong> {telegramUserInfo.firstName} {telegramUserInfo.lastName} 
+          <strong>Telegram User:</strong> {telegramUserInfo.firstName} {telegramUserInfo.lastName}
           (@{telegramUserInfo.username}) - ID: {telegramUserInfo.id}
         </div>
       )}
-      
-      {/* Table Header */}
-      <TableHeader
-        tableNumber={tableNumber}
-        language={language}
-        orderType="dine-in"
-        businessName={shop.name}
-        businessLogo={businessInfo?.logo}
-        customerInfo={telegramUserInfo ? {
-          name: `${telegramUserInfo.firstName} ${telegramUserInfo.lastName || ''}`.trim(),
-          username: telegramUserInfo.username,
-          photo: telegramUserInfo.photoUrl
-        } : undefined}
-      />
+
+      {/* Categories Horizontal Scroll */}
+      {categoriesWithData.length > 0 && (
+        <div className="bg-white border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex items-center space-x-3 overflow-x-auto pb-2 scrollbar-hide">
+              <button
+                onClick={() => setSelectedCategory('')}
+                className={`flex flex-col items-center justify-center min-w-[80px] p-3 rounded-xl transition-all ${
+                  selectedCategory === ''
+                    ? 'bg-blue-600 text-white shadow-lg scale-105'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <Package className="w-6 h-6 mb-1" />
+                <span className="text-xs font-medium">All</span>
+              </button>
+              {categoriesWithData.map((category, index) => (
+                <button
+                  key={index}
+                  onClick={() => setSelectedCategory(category.name)}
+                  className={`flex flex-col items-center justify-center min-w-[80px] p-3 rounded-xl transition-all ${
+                    selectedCategory === category.name
+                      ? 'shadow-lg scale-105'
+                      : 'bg-gray-100 hover:bg-gray-200'
+                  }`}
+                  style={{
+                    backgroundColor: selectedCategory === category.name
+                      ? category.color || '#2563eb'
+                      : undefined,
+                    color: selectedCategory === category.name ? '#fff' : '#374151'
+                  }}
+                >
+                  {category.iconType === 'image' && category.iconImage ? (
+                    <img
+                      src={category.iconImage}
+                      alt={category.name}
+                      className="w-8 h-8 object-cover rounded-lg mb-1"
+                    />
+                  ) : (
+                    <span className="text-2xl mb-1">{category.icon || '📦'}</span>
+                  )}
+                  <span className="text-xs font-medium text-center line-clamp-1">{category.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-white border-b sticky top-0 z-10">
@@ -649,17 +707,6 @@ export default function CatalogPage({}: CatalogPageProps) {
             </div>
             
             <div className="flex gap-2 flex-shrink-0">
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-0"
-              >
-                <option value="">All Categories</option>
-                {categories.map(category => (
-                  <option key={category} value={category}>{category}</option>
-                ))}
-              </select>
-              
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as any)}
