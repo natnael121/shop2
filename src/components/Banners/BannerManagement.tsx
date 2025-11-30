@@ -29,7 +29,8 @@ interface BannerFormData {
   endDate: string;
   isActive: boolean;
 }
-
+const IMGBB_API_KEY = 'f6f560dbdcf0c91aea57b3cd55097799';
+const IMGBB_API_URL = 'https://api.imgbb.com/1/upload';
 export default function BannerManagement({ selectedShopId }: { selectedShopId?: string }) {
   const { user } = useAuth();
   const [banners, setBanners] = useState<Banner[]>([]);
