@@ -72,7 +72,7 @@ export default function CatalogPage({}: CatalogPageProps) {
   const [tableBill, setTableBill] = useState<TableBill | null>(null);
   
   // Calculate cart totals
-  const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const cartItemCount = cartItems.reduce((sum, item) =>   sum + item.quantity, 0);
   const totalAmount = cartItems.reduce((sum, item) => sum + item.total, 0);
   
   // Telegram integration state
