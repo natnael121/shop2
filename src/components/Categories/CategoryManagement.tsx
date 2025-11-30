@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, X, Save, Tag, Package } from 'lucide-react';
+import { Plus, Edit, Trash2, X, Save, Tag, Package, Upload, Image as ImageIcon } from 'lucide-react';
+import { imgbbService } from '../../services/imgbb';
 import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { useAuth } from '../../hooks/useAuth';
 import { db } from '../../lib/firebase';
@@ -10,6 +11,8 @@ interface Category {
   description?: string;
   color: string;
   icon: string;
+  iconType?: 'emoji' | 'image';
+  iconImage?: string;
   order: number;
   userId: string;
   shopId?: string;
@@ -100,11 +103,19 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({ selectedShopId 
           <div key={category.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
-                <div 
-                  className="w-12 h-12 rounded-lg flex items-center justify-center"
+                <div
+                  className="w-12 h-12 rounded-lg flex items-center justify-center overflow-hidden"
                   style={{ backgroundColor: category.color + '20' }}
                 >
-                  <span className="text-2xl">{category.icon || '📦'}</span>
+                  {category.iconType === 'image' && category.iconImage ? (
+                    <img
+                      src={category.iconImage}
+                      alt={category.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-2xl">{category.icon || '📦'}</span>
+                  )}
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900">{category.name}</h3>
@@ -195,8 +206,11 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
   const [description, setDescription] = useState(category?.description || '');
   const [color, setColor] = useState(category?.color || '#3B82F6');
   const [icon, setIcon] = useState(category?.icon || '');
+  const [iconType, setIconType] = useState<'emoji' | 'image'>(category?.iconType || 'emoji');
+  const [iconImage, setIconImage] = useState(category?.iconImage || '');
   const [order, setOrder] = useState(category?.order || 0);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const CATEGORY_ICONS = [
     '📦', '🍕', '🍔', '🥗', '🍰', '☕', '🍹', '🍜', '🍝', '🥘',
@@ -225,6 +239,8 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
         description: description.trim(),
         color,
         icon: icon || '📦',
+        iconType,
+        iconImage: iconType === 'image' ? iconImage : '',
         order,
         userId,
         ...(shopId && { shopId }),
@@ -330,30 +346,116 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Category Icon
             </label>
-            <div className="space-y-3">
-              <input
-                type="text"
-                value={icon}
-                onChange={(e) => setIcon(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="📦"
-                maxLength={2}
-              />
-              <div className="grid grid-cols-10 gap-2 max-h-32 overflow-y-auto">
-                {CATEGORY_ICONS.map((emoji, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    onClick={() => setIcon(emoji)}
-                    className={`p-2 text-lg rounded border hover:bg-gray-50 transition-colors duration-200 ${
-                      icon === emoji ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
-                    }`}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
+
+            <div className="flex space-x-2 mb-3">
+              <button
+                type="button"
+                onClick={() => setIconType('emoji')}
+                className={`flex-1 px-4 py-2 rounded-lg border-2 transition-colors duration-200 ${
+                  iconType === 'emoji'
+                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-gray-300 text-gray-700 hover:border-gray-400'
+                }`}
+              >
+                Use Emoji
+              </button>
+              <button
+                type="button"
+                onClick={() => setIconType('image')}
+                className={`flex-1 px-4 py-2 rounded-lg border-2 transition-colors duration-200 ${
+                  iconType === 'image'
+                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-gray-300 text-gray-700 hover:border-gray-400'
+                }`}
+              >
+                Upload Image
+              </button>
             </div>
+
+            {iconType === 'emoji' ? (
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  value={icon}
+                  onChange={(e) => setIcon(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="📦"
+                  maxLength={2}
+                />
+                <div className="grid grid-cols-10 gap-2 max-h-32 overflow-y-auto p-2 border border-gray-200 rounded-lg">
+                  {CATEGORY_ICONS.map((emoji, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={() => setIcon(emoji)}
+                      className={`p-2 text-lg rounded border hover:bg-gray-50 transition-colors duration-200 ${
+                        icon === emoji ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                      }`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {iconImage ? (
+                  <div className="relative group">
+                    <img
+                      src={iconImage}
+                      alt="Category icon"
+                      className="w-full h-32 object-cover rounded-lg border border-gray-300"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setIconImage('')}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors duration-200">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file || !file.type.startsWith('image/')) return;
+
+                        setUploadingImage(true);
+                        try {
+                          const imageUrl = await imgbbService.uploadImage(file, `category-${name || 'icon'}-${Date.now()}`);
+                          setIconImage(imageUrl);
+                        } catch (error) {
+                          console.error('Error uploading image:', error);
+                          alert('Failed to upload image. Please try again.');
+                        } finally {
+                          setUploadingImage(false);
+                        }
+                      }}
+                      className="hidden"
+                      id="category-icon-upload"
+                      disabled={uploadingImage}
+                    />
+                    <label
+                      htmlFor="category-icon-upload"
+                      className="cursor-pointer flex flex-col items-center space-y-2"
+                    >
+                      {uploadingImage ? (
+                        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Upload className="h-8 w-8 text-gray-400" />
+                      )}
+                      <span className="text-sm text-gray-600">
+                        {uploadingImage ? 'Uploading...' : 'Click to upload icon image'}
+                      </span>
+                      <span className="text-xs text-gray-500">PNG, JPG up to 10MB</span>
+                    </label>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div>
