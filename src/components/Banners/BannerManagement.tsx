@@ -84,31 +84,48 @@ export default function BannerManagement({ selectedShopId }: { selectedShopId?: 
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const file = e.target.files?.[0];
+  if (!file) {
+    alert("No file selected");
+    return;
+  }
 
-    try {
-      setUploading(true);
-      const formDataToSend = new FormData();
-      formDataToSend.append('image', file);
-      formDataToSend.append('key', '1fcbcc5cfdd72e5');
+  try {
+    setUploading(true);
 
-      const response = await fetch('https://api.imgbb.com/1/upload', {
-        method: 'POST',
-        body: formDataToSend,
-      });
+    const formData = new FormData();
+    formData.append("image", file);
 
-      const data = await response.json();
-      if (data.success) {
-        setFormData(prev => ({ ...prev, imageUrl: data.data.url }));
-      }
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      alert('Failed to upload image');
-    } finally {
-      setUploading(false);
+    console.log("Uploading to:", `${IMGBB_API_URL}?key=${IMGBB_API_KEY}`);
+
+    const response = await fetch(`${IMGBB_API_URL}?key=${IMGBB_API_KEY}`, {
+      method: "POST",
+      body: formData,
+    });
+
+    const text = await response.text();  // read raw response
+    console.log("Raw ImgBB Response:", text);
+
+    const data = JSON.parse(text);
+
+    if (!data.success) {
+      console.error("ImgBB Error:", data);
+      alert("Image upload failed: " + (data?.error?.message || "Unknown error"));
+      return;
     }
-  };
+
+    setFormData((prev) => ({
+      ...prev,
+      imageUrl: data.data.url,
+    }));
+  } catch (error) {
+    console.error("Upload exception:", error);
+    alert("Upload failed: " + error);
+  } finally {
+    setUploading(false);
+  }
+};
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
