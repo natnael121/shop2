@@ -18,6 +18,7 @@ import DepartmentManagement from './components/Departments/DepartmentManagement'
 import CategoryManagement from './components/Categories/CategoryManagement';
 import SettingsPanel from './components/Settings/SettingsPanel';
 import CustomerManagement from './components/Customers/CustomerManagement';
+import BannerManagement from './components/Banners/BannerManagement';
 import { Shop } from './types';
 
 function App() {
@@ -142,7 +143,20 @@ function DashboardApp() {
         return (
           <CategoryManagement selectedShopId={selectedShop?.id} />
         );
-        
+
+      case 'banners':
+        if (!selectedShop) {
+          return (
+            <div className="text-center py-12">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No Shop Selected</h3>
+              <p className="text-gray-500">Please select a shop to manage banners.</p>
+            </div>
+          );
+        }
+        return (
+          <BannerManagement selectedShopId={selectedShop.id} />
+        );
+
       case 'analytics':
         return (
           <div className="text-center py-12">

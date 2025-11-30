@@ -13,6 +13,7 @@ import { AboutModal } from '../components/AboutModal';
 import { TableHeader } from '../components/TableHeader';
 import { MenuCard } from '../components/MenuCard';
 import { MenuDetail } from '../components/MenuDetail';
+import BannerCarousel from '../components/Banners/BannerCarousel';
 import { TelegramService } from '../services/telegram';
 import { 
   ShoppingCart, 
@@ -635,6 +636,9 @@ export default function CatalogPage({}: CatalogPageProps) {
           (@{telegramUserInfo.username}) - ID: {telegramUserInfo.id}
         </div>
       )}
+
+      {/* Banner Carousel */}
+      {shop && <BannerCarousel shopId={shop.id} />}
 
       {/* Categories Horizontal Scroll */}
       {categoriesWithData.length > 0 && (

@@ -1,14 +1,15 @@
 import React from 'react';
-import { 
-  Home, 
-  Package, 
-  ShoppingCart, 
-  Users, 
-  BarChart3, 
+import {
+  Home,
+  Package,
+  ShoppingCart,
+  Users,
+  BarChart3,
   Settings,
   Store,
   MessageSquare,
-  Tag
+  Tag,
+  Image
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -22,6 +23,7 @@ const menuItems = [
   { id: 'shops', label: 'My Shops', icon: Store },
   { id: 'products', label: 'Products', icon: Package },
   { id: 'categories', label: 'Categories', icon: Tag },
+  { id: 'banners', label: 'Banners', icon: Image },
   { id: 'orders', label: 'Orders', icon: ShoppingCart },
   { id: 'customers', label: 'Customers', icon: Users },
   { id: 'telegram', label: 'Telegram Setup', icon: MessageSquare },
