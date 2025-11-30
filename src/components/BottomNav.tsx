@@ -32,7 +32,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   const t = useTranslation(language);
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800 px-4 py-2 safe-area-pb">
+    <div className="fixed bottom-0 left-0 right-0 bg-transparent border-t border-gray-800 px-4 py-2 safe-area-pb">
+
       <div className="flex items-center justify-around">
         <button
           onClick={() => onTabChange('home')}
