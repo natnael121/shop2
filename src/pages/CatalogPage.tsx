@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { collection, query, where, getDocs, doc, getDoc, addDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Product, Shop, TableBill, OrderItem } from '../types';
@@ -42,6 +42,7 @@ interface CatalogPageProps {}
 export default function CatalogPage({}: CatalogPageProps) {
   const { shopName } = useParams<{ shopName: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   
   // Telegram Web App integration
   const { webApp, user: telegramUser, isReady: isTelegramReady, isTelegramWebApp, initDataUnsafe } = useTelegramWebApp();
@@ -95,6 +96,41 @@ export default function CatalogPage({}: CatalogPageProps) {
     }
   }, [shopName]);
 
+  // Function to parse and apply URL parameters
+  const applyUrlParameters = () => {
+    const searchParams = new URLSearchParams(location.search);
+    const categoryFromUrl = searchParams.get('category');
+    
+    if (categoryFromUrl) {
+      console.log('Category from URL:', categoryFromUrl);
+      
+      // Only set if we have categories loaded
+      if (categoriesWithData.length > 0) {
+        // Find case-insensitive match
+        const foundCategory = categoriesWithData.find(
+          cat => cat.name.toLowerCase() === categoryFromUrl.toLowerCase()
+        );
+        
+        if (foundCategory) {
+          setSelectedCategory(foundCategory.name);
+          console.log('Category set to:', foundCategory.name);
+        } else {
+          console.log('Category not found:', categoryFromUrl);
+        }
+      }
+    } else {
+      // No category in URL, reset to all
+      setSelectedCategory('');
+    }
+  };
+
+  // Apply URL parameters after categories are loaded
+  useEffect(() => {
+    if (categoriesWithData.length > 0) {
+      applyUrlParameters();
+    }
+  }, [categoriesWithData.length, location.search]);
+
   useEffect(() => {
     // Handle Telegram user info when available
     if (isTelegramReady && telegramUser) {
@@ -112,7 +148,6 @@ export default function CatalogPage({}: CatalogPageProps) {
       
       // Set default customer name from Telegram
       if (telegramUser.first_name) {
-        // You can use this info in forms or order creation
         console.log('Default customer name:', telegramUser.first_name);
       }
     }
@@ -121,27 +156,22 @@ export default function CatalogPage({}: CatalogPageProps) {
   useEffect(() => {
     // Configure Telegram Web App UI
     if (webApp && isTelegramWebApp) {
-      // Set header color to match your app theme
-      webApp.headerColor = '#111827'; // gray-900
-      webApp.backgroundColor = '#f9fafb'; // gray-50
+      webApp.headerColor = '#111827';
+      webApp.backgroundColor = '#f9fafb';
       
-      // Configure back button
       webApp.BackButton.onClick(() => {
         navigate('/');
       });
       
-      // Show back button if not on main page
       if (window.location.pathname !== '/') {
         webApp.BackButton.show();
       }
       
-      // Configure main button for cart
       webApp.MainButton.setText('View Cart');
       webApp.MainButton.onClick(() => {
         setShowCart(true);
       });
       
-      // Update main button based on cart items
       if (cartItems.length > 0) {
         webApp.MainButton.setText(`View Cart (${cartItemCount})`);
         webApp.MainButton.show();
@@ -150,6 +180,7 @@ export default function CatalogPage({}: CatalogPageProps) {
       }
     }
   }, [webApp, isTelegramWebApp, cartItems, cartItemCount, navigate]);
+
   useEffect(() => {
     if (shop?.ownerId) {
       loadTelegramConfig();
@@ -164,7 +195,7 @@ export default function CatalogPage({}: CatalogPageProps) {
     // Update table bill when cart items change
     if (cartItems.length > 0) {
       const subtotal = cartItems.reduce((sum, item) => sum + item.total, 0);
-      const tax = subtotal * 0.1; // 10% tax
+      const tax = subtotal * 0.1;
       const total = subtotal + tax;
       
       const billItems: OrderItem[] = cartItems.map(item => ({
@@ -191,6 +222,19 @@ export default function CatalogPage({}: CatalogPageProps) {
     }
   }, [cartItems, tableNumber]);
 
+  // Handle browser back/forward navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      applyUrlParameters();
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [categoriesWithData]);
+
   const loadShopAndProducts = async () => {
     try {
       setLoading(true);
@@ -204,7 +248,6 @@ export default function CatalogPage({}: CatalogPageProps) {
 
       const shopsSnapshot = await getDocs(shopsQuery);
 
-      // Filter by shop name (case-insensitive)
       const matchingShops = shopsSnapshot.docs.filter(doc =>
         doc.data().name.toLowerCase() === shopName?.toLowerCase()
       );
@@ -272,14 +315,12 @@ export default function CatalogPage({}: CatalogPageProps) {
     if (!shop?.ownerId) return;
     
     try {
-      // Fetch bot token from user document
       const userDoc = await getDoc(doc(db, 'users', shop.ownerId));
       if (userDoc.exists()) {
         const userData = userDoc.data();
         setTelegramBotToken(userData.telegramBotToken || null);
       }
 
-      // Fetch department chat IDs
       const departmentsQuery = query(
         collection(db, 'departments'),
         where('userId', '==', shop.ownerId),
@@ -289,16 +330,13 @@ export default function CatalogPage({}: CatalogPageProps) {
       const departmentsSnapshot = await getDocs(departmentsQuery);
       const departments = departmentsSnapshot.docs.map(doc => doc.data());
       
-      // Find relevant chat IDs
       const cashierDept = departments.find(d => d.role === 'cashier');
       const adminDept = departments.find(d => d.role === 'admin');
       
-      // Set chat IDs for different purposes
       setApprovalChatId(cashierDept?.telegramChatId || adminDept?.telegramChatId || null);
       setBillChatId(cashierDept?.telegramChatId || adminDept?.telegramChatId || null);
       setPaymentChatId(cashierDept?.telegramChatId || adminDept?.telegramChatId || null);
 
-      // Load business info from shop document
       const shopDoc = await getDoc(doc(db, 'shops', shop.id));
       if (shopDoc.exists()) {
         const shopData = shopDoc.data();
@@ -333,7 +371,6 @@ export default function CatalogPage({}: CatalogPageProps) {
       return matchesSearch && matchesCategory && product.stock > 0;
     });
 
-    // Sort products
     filtered.sort((a, b) => {
       switch (sortBy) {
         case 'name':
@@ -352,14 +389,24 @@ export default function CatalogPage({}: CatalogPageProps) {
     setFilteredProducts(filtered);
   };
 
-  const categories = Array.from(new Set(products.map(p => p.category))).filter(Boolean);
+  const handleCategorySelect = (categoryName: string) => {
+    setSelectedCategory(categoryName);
+    
+    // Update URL without page reload
+    const newUrl = `${window.location.pathname}${categoryName ? `?category=${encodeURIComponent(categoryName)}` : ''}`;
+    window.history.pushState({}, '', newUrl);
+    
+    // Also update Telegram Web App back button if needed
+    if (webApp && isTelegramWebApp) {
+      webApp.BackButton.show();
+    }
+  };
 
   const handleProductClick = (product: Product) => {
     setSelectedProduct(product);
   };
 
   const handleAddToCart = (product: Product, quantity: number = 1) => {
-    // Use Telegram haptic feedback if available
     if (webApp?.HapticFeedback) {
       webApp.HapticFeedback.impactOccurred('light');
     }
@@ -383,12 +430,8 @@ export default function CatalogPage({}: CatalogPageProps) {
       setCartItems([...cartItems, newItem]);
     }
     
-    // Show success feedback
-    const itemName = product.name;
-    const totalQuantity = quantity;
     setTimeout(() => {
-      // You could add a toast notification here
-      console.log(`Added ${totalQuantity}x ${itemName} to cart`);
+      console.log(`Added ${quantity}x ${product.name} to cart`);
     }, 100);
   };
 
@@ -409,11 +452,6 @@ export default function CatalogPage({}: CatalogPageProps) {
     setCartItems(cartItems.filter(item => item.id !== itemId));
   };
 
-  const handlePlaceOrder = () => {
-    // This is now handled by the enhanced cart modal
-    setShowCart(true);
-  };
-
   const handlePlaceOrderWithDetails = async (orderDetails: {
     customerName: string;
     customerPhone: string;
@@ -425,17 +463,14 @@ export default function CatalogPage({}: CatalogPageProps) {
     paymentPhotoUrl?: string;
   }) => {
     try {
-      // Use Telegram user info if available and no custom name provided
       const finalCustomerName = orderDetails.customerName || 
         (telegramUserInfo ? `${telegramUserInfo.firstName} ${telegramUserInfo.lastName || ''}`.trim() : 'Customer');
       
-      // Create order data
       const orderData: any = {
         shopId: shop!.id,
         customerId: telegramUserInfo?.username || finalCustomerName,
         customerName: finalCustomerName,
         customerPhone: orderDetails.customerPhone,
-        // Add Telegram-specific fields
         ...(telegramUserInfo && {
           telegramId: telegramUserInfo.id.toString(),
           telegramUsername: telegramUserInfo.username,
@@ -453,7 +488,6 @@ export default function CatalogPage({}: CatalogPageProps) {
         tableNumber: tableNumber
       };
 
-      // Only include optional fields if they have values
       if (orderDetails.deliveryAddress) {
         orderData.deliveryAddress = orderDetails.deliveryAddress;
       }
@@ -464,10 +498,8 @@ export default function CatalogPage({}: CatalogPageProps) {
         orderData.paymentPhotoUrl = orderDetails.paymentPhotoUrl;
       }
       
-      // Mark as web order
       orderData.source = isTelegramWebApp ? 'telegram' : 'web';
 
-      // Create the order in database      
       const docRef = await addDoc(collection(db, 'orders'), {
         ...orderData,
         status: orderDetails.requiresPaymentConfirmation ? 'payment_pending' : 'pending',
@@ -477,10 +509,8 @@ export default function CatalogPage({}: CatalogPageProps) {
         updatedAt: new Date()
       });
 
-      // Add the order ID to the data for Telegram
       const orderWithId = { ...orderData, id: docRef.id };
 
-      // Send order to Telegram for admin approval
       if (telegramBotToken && approvalChatId) {
         const telegram = new TelegramService(telegramBotToken);
         if (orderDetails.requiresPaymentConfirmation) {
@@ -490,7 +520,6 @@ export default function CatalogPage({}: CatalogPageProps) {
         }
       }
 
-      // Clear cart and show success message
       setCartItems([]);
       setShowCart(false);
       
@@ -506,7 +535,6 @@ export default function CatalogPage({}: CatalogPageProps) {
   };
 
   const handleWaiterCall = () => {
-    // Use Telegram haptic feedback if available
     if (webApp?.HapticFeedback) {
       webApp.HapticFeedback.notificationOccurred('success');
     }
@@ -544,7 +572,6 @@ export default function CatalogPage({}: CatalogPageProps) {
   };
 
   const handleBillClick = () => {
-    // Use Telegram haptic feedback if available
     if (webApp?.HapticFeedback) {
       webApp.HapticFeedback.impactOccurred('light');
     }
@@ -569,13 +596,10 @@ export default function CatalogPage({}: CatalogPageProps) {
   };
 
   const handlePaymentSubmit = async (paymentData: { screenshotUrl: string; method: string }) => {
-    // Payment has been submitted and sent to Telegram
-    // Clear cart and show success message
     setCartItems([]);
     setTableBill(null);
     alert('Payment submitted successfully! Your order will be processed shortly.');
   };
-
 
   const handleShare = async (product: Product) => {
     if (navigator.share) {
@@ -589,7 +613,6 @@ export default function CatalogPage({}: CatalogPageProps) {
         console.log('Error sharing:', err);
       }
     } else {
-      // Fallback: copy to clipboard
       navigator.clipboard.writeText(window.location.href);
       alert('Link copied to clipboard!');
     }
@@ -629,7 +652,7 @@ export default function CatalogPage({}: CatalogPageProps) {
     <>
       <TelegramWebAppScript />
     <div className="min-h-screen bg-gray-50 pb-20 overflow-x-hidden">
-      {/* Telegram User Info Debug (only in development) */}
+      {/* Telegram User Info Debug */}
       {process.env.NODE_ENV === 'development' && telegramUserInfo && (
         <div className="bg-blue-100 border border-blue-300 p-2 text-xs text-blue-800">
           <strong>Telegram User:</strong> {telegramUserInfo.firstName} {telegramUserInfo.lastName}
@@ -646,7 +669,7 @@ export default function CatalogPage({}: CatalogPageProps) {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex items-center space-x-3 overflow-x-auto pb-2 scrollbar-hide">
               <button
-                onClick={() => setSelectedCategory('')}
+                onClick={() => handleCategorySelect('')}
                 className={`flex flex-col items-center justify-center min-w-[80px] p-3 rounded-xl transition-all ${
                   selectedCategory === ''
                     ? 'bg-blue-600 text-white shadow-lg scale-105'
@@ -659,7 +682,7 @@ export default function CatalogPage({}: CatalogPageProps) {
               {categoriesWithData.map((category, index) => (
                 <button
                   key={index}
-                  onClick={() => setSelectedCategory(category.name)}
+                  onClick={() => handleCategorySelect(category.name)}
                   className={`flex flex-col items-center justify-center min-w-[80px] p-3 rounded-xl transition-all ${
                     selectedCategory === category.name
                       ? 'shadow-lg scale-105'
@@ -730,6 +753,24 @@ export default function CatalogPage({}: CatalogPageProps) {
               </button>
             </div>
           </div>
+          
+          {/* Category Filter Info */}
+          {selectedCategory && (
+            <div className="mt-3 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-600">Filtered by:</span>
+                <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">
+                  {selectedCategory}
+                </span>
+              </div>
+              <button
+                onClick={() => handleCategorySelect('')}
+                className="text-sm text-blue-600 hover:text-blue-800"
+              >
+                Clear filter
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -740,11 +781,21 @@ export default function CatalogPage({}: CatalogPageProps) {
             <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-medium text-gray-900 mb-2">No products found</h3>
             <p className="text-gray-600">
-              {searchTerm || selectedCategory 
-                ? 'Try adjusting your search or filter criteria.'
+              {selectedCategory 
+                ? `No products found in "${selectedCategory}" category.`
+                : searchTerm
+                ? 'Try adjusting your search criteria.'
                 : 'This shop doesn\'t have any products yet.'
               }
             </p>
+            {selectedCategory && (
+              <button
+                onClick={() => handleCategorySelect('')}
+                className="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+              >
+                View all products
+              </button>
+            )}
           </div>
         ) : (
           <div className={viewMode === 'grid' 
@@ -836,6 +887,6 @@ export default function CatalogPage({}: CatalogPageProps) {
         />
       )}
     </div>
-    </>
+    </> 
   );
 }
