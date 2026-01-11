@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, X, Save, Tag, Package, Upload, Image as ImageIcon } from 'lucide-react';
+import { Plus, Edit, Trash2, X, Save, Tag, Package, Upload, Image as ImageIcon, QrCode } from 'lucide-react';
 import { imgbbService } from '../../services/imgbb';
 import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { useAuth } from '../../hooks/useAuth';
 import { db } from '../../lib/firebase';
+import { QRCodeGenerator } from '../QRCodeGenerator';
 
 interface Category {
   id: string;
@@ -30,9 +31,30 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({ selectedShopId 
   const [loading, setLoading] = useState(true);
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [showQRGenerator, setShowQRGenerator] = useState(false);
+  const [shopData, setShopData] = useState<any>(null);
+  const [businessLogo, setBusinessLogo] = useState<string>('');
 
   useEffect(() => {
     if (!user?.uid) return;
+
+    // Load shop data if shopId is provided
+    if (selectedShopId) {
+      const loadShopData = async () => {
+        try {
+          const shopDoc = await doc(db, 'shops', selectedShopId);
+          const shopSnapshot = await getDoc(shopDoc);
+          if (shopSnapshot.exists()) {
+            const data = shopSnapshot.data();
+            setShopData(data);
+            setBusinessLogo(data.logo || '');
+          }
+        } catch (error) {
+          console.error('Error loading shop data:', error);
+        }
+      };
+      loadShopData();
+    }
 
     const q = query(
       collection(db, 'categories'),
@@ -66,6 +88,20 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({ selectedShopId 
     }
   };
 
+  const handleGenerateQRCodes = () => {
+    if (!selectedShopId) {
+      alert('Please select a shop first');
+      return;
+    }
+    
+    if (categories.length === 0) {
+      alert('No categories available. Please create categories first.');
+      return;
+    }
+    
+    setShowQRGenerator(true);
+  };
+
   if (loading) {
     return (
       <div className="p-6">
@@ -88,19 +124,60 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({ selectedShopId 
           <h2 className="text-2xl font-bold text-gray-900">Category Management</h2>
           <p className="text-gray-600">Organize your products with custom categories</p>
         </div>
-        <button
-          onClick={() => setShowAddCategory(true)}
-          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Category
-        </button>
+        <div className="flex space-x-3">
+          <button
+            onClick={handleGenerateQRCodes}
+            disabled={!selectedShopId || categories.length === 0}
+            className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            <QrCode className="h-4 w-4 mr-2" />
+            Generate QR Codes
+          </button>
+          <button
+            onClick={() => setShowAddCategory(true)}
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Category
+          </button>
+        </div>
       </div>
+
+      {/* Shop Info Banner */}
+      {selectedShopId && shopData && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              {shopData.logo && (
+                <img
+                  src={shopData.logo}
+                  alt={shopData.name}
+                  className="w-10 h-10 rounded-lg object-cover"
+                />
+              )}
+              <div>
+                <h3 className="font-semibold text-gray-900">{shopData.name}</h3>
+                <p className="text-sm text-gray-600">
+                  {categories.length} categories available for QR generation
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleGenerateQRCodes}
+              disabled={categories.length === 0}
+              className="inline-flex items-center px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              <QrCode className="h-3.5 w-3.5 mr-1.5" />
+              QR Codes
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Categories Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {categories.map((category) => (
-          <div key={category.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div key={category.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
                 <div
@@ -142,10 +219,19 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({ selectedShopId 
               </div>
             </div>
 
-            <div className="pt-2 border-t">
+            <div className="flex items-center justify-between pt-2 border-t">
               <p className="text-xs text-gray-500">
                 Created: {category.createdAt?.toLocaleDateString()}
               </p>
+              <span 
+                className="text-xs font-medium px-2 py-1 rounded"
+                style={{ 
+                  backgroundColor: category.color + '20',
+                  color: category.color 
+                }}
+              >
+                Order: {category.order}
+              </span>
             </div>
           </div>
         ))}
@@ -154,17 +240,42 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({ selectedShopId 
           <div className="col-span-full text-center py-12">
             <Tag className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No categories yet</h3>
-            <p className="text-gray-600 mb-4">Create your first category to organize your products</p>
-            <button
-              onClick={() => setShowAddCategory(true)}
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Category
-            </button>
+            <p className="text-gray-600 mb-6">
+              {!selectedShopId 
+                ? 'Select a shop first, then create categories to organize your products'
+                : 'Create your first category to organize your products'
+              }
+            </p>
+            <div className="flex justify-center space-x-3">
+              {!selectedShopId && (
+                <div className="px-4 py-2 bg-yellow-100 text-yellow-800 rounded-lg border border-yellow-200">
+                  Select a shop first
+                </div>
+              )}
+              <button
+                onClick={() => setShowAddCategory(true)}
+                disabled={!selectedShopId}
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Category
+              </button>
+            </div>
           </div>
         )}
       </div>
+
+      {/* QR Code Generator Modal */}
+      {showQRGenerator && selectedShopId && shopData && (
+        <QRCodeGenerator
+          userId={user?.uid || ''}
+          businessName={shopData.name}
+          businessLogo={businessLogo}
+          shopName={shopData.name.toLowerCase().replace(/\s+/g, '-')}
+          categories={categories}
+          onClose={() => setShowQRGenerator(false)}
+        />
+      )}
 
       {/* Add/Edit Category Modal */}
       {(showAddCategory || editingCategory) && (
@@ -186,7 +297,7 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({ selectedShopId 
   );
 };
 
-// Category Modal Component
+// Category Modal Component (unchanged)
 interface CategoryModalProps {
   category: Category | null;
   userId: string;
@@ -210,7 +321,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
   const [iconImage, setIconImage] = useState(category?.iconImage || '');
   const [order, setOrder] = useState(category?.order || 0);
   const [saving, setSaving] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingImage, setUploadingImage] useState(false);
 
   const CATEGORY_ICONS = [
     '📦', '🍕', '🍔', '🥗', '🍰', '☕', '🍹', '🍜', '🍝', '🥘',
