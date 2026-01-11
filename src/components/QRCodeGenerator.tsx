@@ -414,7 +414,7 @@ export const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                   const category = categories.find(cat => cat.id === categoryId);
                   if (!category) return null;
 
-                  const url = `${window.location.origin}/catalog/${shopName}?category=${encodeURIComponent(category.name)}`;
+                  const url = `${window.location.origin}/shop/${shopName}?category=${encodeURIComponent(category.name)}`;
                   
                   return (
                     <div
