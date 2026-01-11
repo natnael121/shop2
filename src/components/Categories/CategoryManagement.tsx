@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, X, Save, Tag, Package, Upload, Image as ImageIcon, QrCode } from 'lucide-react';
 import { imgbbService } from '../../services/imgbb';
-import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, deleteDoc, getDoc } from 'firebase/firestore';
 import { useAuth } from '../../hooks/useAuth';
 import { db } from '../../lib/firebase';
 import { QRCodeGenerator } from '../QRCodeGenerator';
@@ -34,6 +34,7 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({ selectedShopId 
   const [showQRGenerator, setShowQRGenerator] = useState(false);
   const [shopData, setShopData] = useState<any>(null);
   const [businessLogo, setBusinessLogo] = useState<string>('');
+  const [shopSlug, setShopSlug] = useState<string>('');
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -42,12 +43,13 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({ selectedShopId 
     if (selectedShopId) {
       const loadShopData = async () => {
         try {
-          const shopDoc = await doc(db, 'shops', selectedShopId);
-          const shopSnapshot = await getDoc(shopDoc);
+          const shopDocRef = doc(db, 'shops', selectedShopId);
+          const shopSnapshot = await getDoc(shopDocRef);
           if (shopSnapshot.exists()) {
             const data = shopSnapshot.data();
             setShopData(data);
             setBusinessLogo(data.logo || '');
+            setShopSlug(data.slug || data.name.toLowerCase().replace(/\s+/g, '-'));
           }
         } catch (error) {
           console.error('Error loading shop data:', error);
@@ -94,6 +96,11 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({ selectedShopId 
       return;
     }
     
+    if (!shopSlug) {
+      alert('Shop information not loaded yet. Please wait.');
+      return;
+    }
+    
     if (categories.length === 0) {
       alert('No categories available. Please create categories first.');
       return;
@@ -127,7 +134,7 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({ selectedShopId 
         <div className="flex space-x-3">
           <button
             onClick={handleGenerateQRCodes}
-            disabled={!selectedShopId || categories.length === 0}
+            disabled={!selectedShopId || categories.length === 0 || !shopSlug}
             className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
             <QrCode className="h-4 w-4 mr-2" />
@@ -135,7 +142,8 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({ selectedShopId 
           </button>
           <button
             onClick={() => setShowAddCategory(true)}
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+            disabled={!selectedShopId}
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Category
@@ -159,12 +167,17 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({ selectedShopId 
                 <h3 className="font-semibold text-gray-900">{shopData.name}</h3>
                 <p className="text-sm text-gray-600">
                   {categories.length} categories available for QR generation
+                  {shopSlug && (
+                    <span className="ml-2 text-blue-600">
+                      (URL: /shop/{shopSlug})
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
             <button
               onClick={handleGenerateQRCodes}
-              disabled={categories.length === 0}
+              disabled={categories.length === 0 || !shopSlug}
               className="inline-flex items-center px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               <QrCode className="h-3.5 w-3.5 mr-1.5" />
@@ -266,12 +279,12 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({ selectedShopId 
       </div>
 
       {/* QR Code Generator Modal */}
-      {showQRGenerator && selectedShopId && shopData && (
+      {showQRGenerator && selectedShopId && shopData && shopSlug && (
         <QRCodeGenerator
           userId={user?.uid || ''}
           businessName={shopData.name}
           businessLogo={businessLogo}
-          shopName={shopData.name.toLowerCase().replace(/\s+/g, '-')}
+          shopName={shopSlug}
           categories={categories}
           onClose={() => setShowQRGenerator(false)}
         />
@@ -297,7 +310,7 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({ selectedShopId 
   );
 };
 
-// Category Modal Component (unchanged)
+// Category Modal Component
 interface CategoryModalProps {
   category: Category | null;
   userId: string;
@@ -594,15 +607,15 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
               type="submit"
               disabled={saving}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:bg-gray-400 flex items-center space-x-2"
-            >
+            > 
               <Save className="w-4 h-4" />
               <span>{saving ? 'Saving...' : 'Save Category'}</span>
             </button>
           </div>
         </form>
       </div>
-    </div>
-  );
+    </div> 
+  );   
 };
 
 export default CategoryManagement;
