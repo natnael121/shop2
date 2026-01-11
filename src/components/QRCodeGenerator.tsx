@@ -53,7 +53,7 @@ export const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
   };
 
   const generateQRCode = async (category: Category): Promise<string> => {
-    const url = `${window.location.origin}/catalog/${shopName}?category=${encodeURIComponent(category.name)}`;
+    const url = `${window.location.origin}/shop/${shopName}?category=${encodeURIComponent(category.name)}`;
     try {
       const qrDataURL = await QRCode.toDataURL(url, {
         width: 300,
