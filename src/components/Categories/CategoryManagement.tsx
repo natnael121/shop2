@@ -321,7 +321,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
   const [iconImage, setIconImage] = useState(category?.iconImage || '');
   const [order, setOrder] = useState(category?.order || 0);
   const [saving, setSaving] = useState(false);
-  const [uploadingImage, setUploadingImage] useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const CATEGORY_ICONS = [
     '📦', '🍕', '🍔', '🥗', '🍰', '☕', '🍹', '🍜', '🍝', '🥘',
