@@ -228,7 +228,7 @@ export const CartModal: React.FC<CartModalProps> = ({
               <>
                 <div className="w-4 h-4 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
                 Placing Order...
-              </>
+              </> 
             ) : (
               'Place Order'
             )}
