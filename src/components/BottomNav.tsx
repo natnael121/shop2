@@ -8,7 +8,7 @@ interface BottomNavProps {
   onWaiterCall: () => void;
   onBillClick: () => void;
   onCartClick: () => void;
-  onSettingsClick: () => void;
+  onSettingsClick: () => void; 
   onAboutClick: () => void;
   cartItemCount: number;
   language: 'en' | 'am';
