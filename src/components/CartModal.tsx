@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Plus, Minus, Trash2, User, ArrowRight } from 'lucide-react';
+import { X, Plus, Minus, Trash2, User } from 'lucide-react';
 
 // Define OrderItem interface for this component
 interface OrderItem {
@@ -50,8 +50,6 @@ export const CartModal: React.FC<CartModalProps> = ({
   );
   const [customerPhone, setCustomerPhone] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [showPaymentConfirmation, setShowPaymentConfirmation] = React.useState(false);
-  const [paymentPhoto, setPaymentPhoto] = React.useState<File | null>(null);
 
   const handlePlaceOrder = async () => {
     // Phone number is mandatory
@@ -62,31 +60,19 @@ export const CartModal: React.FC<CartModalProps> = ({
 
     setIsSubmitting(true);
     try {
+      // Use the customer name if provided, otherwise use Telegram name or "Customer"
+      const finalCustomerName = customerName.trim() || 
+        (telegramUserInfo ? `${telegramUserInfo.firstName} ${telegramUserInfo.lastName || ''}`.trim() : 'Customer');
+      
       await onPlaceOrder({
-        customerName: customerName.trim(),
-        customerPhone: customerPhone.trim(),
-        deliveryMethod: 'pickup', // Default to pickup
-        paymentPreference: 'cash', // Default to cash
-        requiresPaymentConfirmation: false,
-      });
-      onClose();
-    } catch (error) {
-      console.error('Error placing order:', error);
-      alert('Failed to place order. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handlePaymentConfirmation = async () => {
-    setIsSubmitting(true);
-    try {
-      await onPlaceOrder({
-        customerName: customerName.trim(),
+        customerName: finalCustomerName,
         customerPhone: customerPhone.trim(),
         deliveryMethod: 'pickup',
+        deliveryAddress: undefined, // Not needed for pickup
         paymentPreference: 'cash',
+        customerNotes: '', // Empty string instead of undefined
         requiresPaymentConfirmation: false,
+        paymentPhotoUrl: undefined,
       });
       onClose();
     } catch (error) {
@@ -96,87 +82,6 @@ export const CartModal: React.FC<CartModalProps> = ({
       setIsSubmitting(false);
     }
   };
-
-  if (showPaymentConfirmation) {
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div className="bg-gray-900 w-full max-w-md max-h-[90vh] rounded-2xl overflow-hidden animate-slide-up flex flex-col shadow-xl">
-          <div className="flex items-center justify-between p-4 border-b border-gray-800">
-            <h2 className="text-lg font-bold text-white">Order Confirmation</h2>
-            <button
-              onClick={() => setShowPaymentConfirmation(false)}
-              className="p-2 hover:bg-gray-800 rounded-full transition-colors"
-            >
-              <X className="w-5 h-5 text-gray-300" />
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {/* Order Summary */}
-            <div className="bg-gray-800 p-4 rounded-lg">
-              <h3 className="text-white font-semibold mb-3">Order Summary</h3>
-              <div className="space-y-2 text-sm">
-                {items.slice(0, 3).map((item) => (
-                  <div key={item.id} className="flex justify-between text-gray-300">
-                    <span>{item.name} × {item.quantity}</span>
-                    <span>${item.total.toFixed(2)}</span>
-                  </div>
-                ))}
-                {items.length > 3 && (
-                  <div className="text-gray-400 text-xs">
-                    +{items.length - 3} more items
-                  </div>
-                )}
-                <div className="border-t border-gray-700 pt-2 mt-2 flex justify-between font-bold text-yellow-400">
-                  <span>Total</span>
-                  <span>${totalAmount.toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Important Notice */}
-            <div className="bg-yellow-900/30 border border-yellow-700 p-4 rounded-lg">
-              <h4 className="text-yellow-300 font-semibold mb-2">Important Notice</h4>
-              <div className="text-sm text-yellow-200 space-y-1">
-                <p>• Your order has been submitted successfully</p>
-                <p>• The restaurant will contact you at: {customerPhone}</p>
-                <p>• Payment: Cash on pickup/delivery</p>
-                <p>• You will be notified once your order is ready</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-4 border-t border-gray-800 bg-gray-800">
-            <div className="flex space-x-3">
-              <button
-                onClick={() => setShowPaymentConfirmation(false)}
-                className="flex-1 bg-gray-700 text-white py-3 rounded-lg font-semibold hover:bg-gray-600 transition-colors"
-              >
-                Back
-              </button>
-              <button
-                onClick={handlePaymentConfirmation}
-                disabled={isSubmitting}
-                className="flex-1 bg-yellow-400 text-gray-900 py-3 rounded-lg font-semibold hover:bg-yellow-300 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {isSubmitting ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
-                    Confirming...
-                  </>
-                ) : (
-                  <>
-                    Confirm Order
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (items.length === 0) {
     return (
@@ -301,6 +206,9 @@ export const CartModal: React.FC<CartModalProps> = ({
                 placeholder="Enter your phone number"
                 required
               />
+              <p className="text-xs text-gray-400 mt-1">
+                We'll contact you at this number for order updates
+              </p>
             </div>
           </div>
         </div>
@@ -325,6 +233,10 @@ export const CartModal: React.FC<CartModalProps> = ({
               'Place Order'
             )}
           </button>
+          
+          <p className="text-xs text-gray-400 text-center mt-3">
+            Default: Pickup & Cash Payment
+          </p>
         </div>
       </div>
     </div>
