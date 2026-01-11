@@ -36,17 +36,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 
 
       <div className="flex items-center justify-around">
-        <button
-          onClick={() => onTabChange('home')}
-          className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
-            activeTab === 'home'
-              ? 'text-yellow-400 bg-yellow-400/10'
-              : 'text-gray-400 hover:text-yellow-400'
-          }`}
-        >
-          <Home className="w-6 h-6 mb-1" />
-          <span className="text-xs font-medium">{t('home')}</span>
-        </button>
+        
 
         <button
           onClick={onAboutClick}
@@ -71,41 +61,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           )}
         </button>
 
-        <button
-          onClick={onBillClick}
-          className="flex flex-col items-center py-2 px-3 rounded-lg text-gray-400 hover:text-yellow-400 hover:bg-yellow-400/10 transition-colors"
-        >
-          <FileText className="w-6 h-6 mb-1" />
-          <span className="text-xs font-medium">{t('bill')}</span>
-        </button>
+      
 
-        {onNotificationToggle && (
-          <button
-            onClick={onNotificationToggle}
-            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
-              notificationsEnabled
-                ? 'text-green-400 bg-green-400/10'
-                : 'text-gray-400 hover:text-yellow-400 hover:bg-yellow-400/10'
-            }`}
-          >
-            {notificationsEnabled ? (
-              <Bell className="w-6 h-6 mb-1" />
-            ) : (
-              <BellOff className="w-6 h-6 mb-1" />
-            )}
-            <span className="text-xs font-medium">
-              {t('alerts')}
-            </span>
-          </button>
-        )}
-
-        <button
-          onClick={onSettingsClick}
-          className="flex flex-col items-center py-2 px-3 rounded-lg text-gray-400 hover:text-yellow-400 hover:bg-yellow-400/10 transition-colors"
-        >
-          <Settings className="w-6 h-6 mb-1" />
-          <span className="text-xs font-medium">{t('settings')}</span>
-        </button>
+       
       </div>
     </div>
   );
