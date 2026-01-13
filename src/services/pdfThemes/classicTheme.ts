@@ -9,8 +9,27 @@ const loadImage = (url: string): Promise<HTMLImageElement> => {
     img.crossOrigin = 'anonymous';
     img.onload = () => resolve(img);
     img.onerror = reject;
-    img.src = url;
+    
+    // Handle Firebase storage URLs and other image sources
+    if (url.startsWith('http')) {
+      img.src = url;
+    } else {
+      // For base64 or data URLs
+      img.src = url;
+    }
   });
+};
+
+// Helper to add image to PDF
+const addImageToPDF = async (pdf: jsPDF, imageUrl: string, x: number, y: number, width: number, height: number) => {
+  try {
+    const img = await loadImage(imageUrl);
+    pdf.addImage(img, 'JPEG', x, y, width, height);
+    return true;
+  } catch (error) {
+    console.error('Error adding image to PDF:', error);
+    return false;
+  }
 };
 
 export const generateClassicDesignPDF = async (
@@ -31,6 +50,7 @@ export const generateClassicDesignPDF = async (
   const columnGap = 10;
   const colWidth = (pageWidth - margin * 2 - columnGap) / 2;
   const lineHeight = 6;
+  const itemSpacing = 10;
 
   // === Background for every page ===
   const addBackground = () => {
@@ -43,226 +63,294 @@ export const generateClassicDesignPDF = async (
     addBackground();
   };
 
-  // === Header with business info ===
-  const addHeader = (y: number) => {
+  // === Header with business logo and info ===
+  const addHeader = async (y: number): Promise<number> => {
     const headerY = y;
+    let currentY = headerY;
     
-    // Business name as logo
-    const businessName = businessInfo.businessName?.toUpperCase() || 'FURNITURE';
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(28);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text(businessName, pageWidth / 2, headerY + 12, { align: 'center' });
+    // Add business logo if available
+    if (businessInfo.logoUrl) {
+      try {
+        const logoHeight = 20;
+        const logoWidth = logoHeight * 1.5;
+        const logoX = pageWidth / 2 - logoWidth / 2;
+        
+        const imageAdded = await addImageToPDF(pdf, businessInfo.logoUrl, logoX, currentY, logoWidth, logoHeight);
+        if (imageAdded) {
+          currentY += logoHeight + 5;
+        } else {
+          // Fallback: show business name as text
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(24);
+          pdf.setTextColor(0, 0, 0);
+          const businessName = businessInfo.businessName?.toUpperCase() || 'BUSINESS';
+          pdf.text(businessName, pageWidth / 2, currentY + 12, { align: 'center' });
+          currentY += 20;
+        }
+      } catch (error) {
+        console.error('Error adding logo:', error);
+      }
+    } else {
+      // No logo, show business name
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(24);
+      pdf.setTextColor(0, 0, 0);
+      const businessName = businessInfo.businessName?.toUpperCase() || 'BUSINESS';
+      pdf.text(businessName, pageWidth / 2, currentY + 12, { align: 'center' });
+      currentY += 20;
+    }
     
     // Add decorative line
-    pdf.setDrawColor(0, 0, 0);
-    pdf.setLineWidth(0.3);
-    pdf.line(margin, headerY + 18, pageWidth - margin, headerY + 18);
-    
-    // Add contact info on next line
-    pdf.setFontSize(9);
-    pdf.setFont('helvetica', 'normal');
-    const contactInfo = [
-      businessInfo.phone || '+123-456-7890',
-      businessInfo.city || 'City',
-      businessInfo.country || 'Country'
-    ].filter(Boolean).join(' • ');
-    
-    pdf.text(contactInfo, pageWidth / 2, headerY + 25, { align: 'center' });
-    
-    return headerY + 30;
-  };
-
-  // === Category header with background ===
-  const addCategoryHeader = (x: number, y: number, width: number, categoryName: string): number => {
-    // Background for category header
-    pdf.setFillColor(240, 240, 240);
-    pdf.rect(x, y, width, 12, 'F');
-    
-    // Border
     pdf.setDrawColor(200, 200, 200);
     pdf.setLineWidth(0.5);
-    pdf.rect(x, y, width, 12);
+    pdf.line(margin, currentY, pageWidth - margin, currentY);
+    currentY += 5;
+    
+    // Add contact info
+    const contactInfo = [];
+    if (businessInfo.phone) contactInfo.push(`📞 ${businessInfo.phone}`);
+    if (businessInfo.email) contactInfo.push(`✉️ ${businessInfo.email}`);
+    if (businessInfo.address) contactInfo.push(`📍 ${businessInfo.address}`);
+    
+    if (contactInfo.length > 0) {
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(100, 100, 100);
+      
+      contactInfo.forEach((info, index) => {
+        pdf.text(info, pageWidth / 2, currentY + (index * 4), { align: 'center' });
+      });
+      
+      currentY += contactInfo.length * 4 + 5;
+    }
+    
+    // Add title
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(18);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text('PRODUCT CATALOG', pageWidth / 2, currentY + 8, { align: 'center' });
+    
+    // Add decorative line under title
+    pdf.setDrawColor(0, 0, 0);
+    pdf.setLineWidth(0.3);
+    pdf.line(margin, currentY + 12, pageWidth - margin, currentY + 12);
+    
+    return currentY + 20;
+  };
+
+  // === Category header ===
+  const addCategoryHeader = (x: number, y: number, width: number, categoryName: string): number => {
+    // Category background
+    pdf.setFillColor(240, 240, 240);
+    pdf.rect(x, y, width, 10, 'F');
     
     // Category name
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(12);
     pdf.setTextColor(0, 0, 0);
-    pdf.text(categoryName.toUpperCase(), x + width / 2, y + 8, { align: 'center' });
+    
+    // Check if text fits, otherwise truncate
+    let displayName = categoryName.toUpperCase();
+    if (pdf.getTextWidth(displayName) > width - 10) {
+      while (pdf.getTextWidth(displayName + '...') > width - 10 && displayName.length > 3) {
+        displayName = displayName.slice(0, -1);
+      }
+      displayName += '...';
+    }
+    
+    pdf.text(displayName, x + width / 2, y + 7, { align: 'center' });
+    
+    // Border
+    pdf.setDrawColor(200, 200, 200);
+    pdf.setLineWidth(0.5);
+    pdf.rect(x, y, width, 10);
     
     return y + 15;
   };
 
-  // === Product item with image ===
+  // === Product item with image and details ===
   const addProductItem = async (
     x: number, 
     y: number, 
     width: number, 
-    product: Product
+    product: Product,
+    index: number
   ): Promise<number> => {
+    const padding = 5;
+    const imageSize = 35;
+    const contentWidth = width - padding * 2;
     let currentY = y;
-    const padding = 2;
-    const imageHeight = 30;
-    const imageWidth = imageHeight * 0.8;
     
-    // Try to load and add product image
+    // Product border
+    pdf.setDrawColor(220, 220, 220);
+    pdf.setLineWidth(0.3);
+    pdf.rect(x, y, width, imageSize + 35); // Approximate height
+    
+    // Add background color for alternate rows
+    if (index % 2 === 0) {
+      pdf.setFillColor(250, 250, 250);
+      pdf.rect(x, y, width, imageSize + 35, 'F');
+    }
+    
+    // Product image
+    const imageX = x + padding;
+    const imageY = currentY + padding;
+    
     if (product.images && product.images.length > 0) {
       try {
-        const img = await loadImage(product.images[0]);
-        const aspectRatio = img.width / img.height;
-        const imgWidth = Math.min(imageWidth, width - padding * 2);
-        const imgHeight = imgWidth / aspectRatio;
+        const imageAdded = await addImageToPDF(pdf, product.images[0], imageX, imageY, imageSize, imageSize);
         
-        // Add image placeholder with border
-        pdf.setFillColor(245, 245, 245);
-        pdf.rect(x + padding, currentY, imgWidth, imgHeight, 'F');
-        pdf.setDrawColor(220, 220, 220);
-        pdf.rect(x + padding, currentY, imgWidth, imgHeight);
-        
-        // Add image text if we can't embed
-        pdf.setFontSize(8);
-        pdf.setTextColor(180, 180, 180);
-        pdf.text('PRODUCT IMAGE', x + padding + imgWidth / 2, currentY + imgHeight / 2, { align: 'center' });
-        
-        currentY += imgHeight + 4;
+        if (!imageAdded) {
+          // Fallback image placeholder
+          pdf.setFillColor(245, 245, 245);
+          pdf.rect(imageX, imageY, imageSize, imageSize, 'F');
+          pdf.setDrawColor(200, 200, 200);
+          pdf.rect(imageX, imageY, imageSize, imageSize);
+          
+          pdf.setFontSize(8);
+          pdf.setFont('helvetica', 'italic');
+          pdf.setTextColor(150, 150, 150);
+          pdf.text('IMAGE', imageX + imageSize / 2, imageY + imageSize / 2, { align: 'center' });
+        }
       } catch (error) {
-        console.error('Error loading image:', error);
-        // Fallback: show placeholder
+        console.error('Error adding product image:', error);
+        // Placeholder
         pdf.setFillColor(245, 245, 245);
-        pdf.rect(x + padding, currentY, imageWidth, imageHeight, 'F');
-        pdf.setDrawColor(220, 220, 220);
-        pdf.rect(x + padding, currentY, imageWidth, imageHeight);
-        
-        pdf.setFontSize(8);
-        pdf.setTextColor(180, 180, 180);
-        pdf.text('IMAGE', x + padding + imageWidth / 2, currentY + imageHeight / 2, { align: 'center' });
-        
-        currentY += imageHeight + 4;
+        pdf.rect(imageX, imageY, imageSize, imageSize, 'F');
+        pdf.setDrawColor(200, 200, 200);
+        pdf.rect(imageX, imageY, imageSize, imageSize);
       }
     } else {
       // No image available
       pdf.setFillColor(245, 245, 245);
-      pdf.rect(x + padding, currentY, imageWidth, imageHeight, 'F');
-      pdf.setDrawColor(220, 220, 220);
-      pdf.rect(x + padding, currentY, imageWidth, imageHeight);
+      pdf.rect(imageX, imageY, imageSize, imageSize, 'F');
+      pdf.setDrawColor(200, 200, 200);
+      pdf.rect(imageX, imageY, imageSize, imageSize);
       
       pdf.setFontSize(8);
-      pdf.setTextColor(180, 180, 180);
-      pdf.text('NO IMAGE', x + padding + imageWidth / 2, currentY + imageHeight / 2, { align: 'center' });
-      
-      currentY += imageHeight + 4;
+      pdf.setFont('helvetica', 'italic');
+      pdf.setTextColor(150, 150, 150);
+      pdf.text('NO IMAGE', imageX + imageSize / 2, imageY + imageSize / 2, { align: 'center' });
     }
+    
+    // Product details (right of image)
+    const detailsX = imageX + imageSize + 5;
+    const detailsWidth = contentWidth - imageSize - 5;
     
     // Product name
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(10);
     pdf.setTextColor(0, 0, 0);
     
-    // Split long product names
-    const maxNameWidth = width - padding * 2;
+    // Handle long product names
     const productName = product.name;
-    let nameLines: string[] = [];
-    let currentLine = '';
+    const maxNameWidth = detailsWidth - 5;
+    let displayName = productName;
     
-    for (const word of productName.split(' ')) {
-      const testLine = currentLine + (currentLine ? ' ' : '') + word;
-      if (pdf.getTextWidth(testLine) <= maxNameWidth) {
-        currentLine = testLine;
-      } else {
-        if (currentLine) nameLines.push(currentLine);
-        currentLine = word;
+    if (pdf.getTextWidth(displayName) > maxNameWidth) {
+      while (pdf.getTextWidth(displayName + '...') > maxNameWidth && displayName.length > 3) {
+        displayName = displayName.slice(0, -1);
       }
-    }
-    if (currentLine) nameLines.push(currentLine);
-    
-    // If name is still too long, truncate
-    if (nameLines.length > 2) {
-      nameLines = [nameLines[0], nameLines[1] + '...'];
+      displayName += '...';
     }
     
-    nameLines.forEach((line, index) => {
-      pdf.text(line, x + padding, currentY + (index * 4));
-    });
+    pdf.text(displayName, detailsX, imageY + 6);
     
-    currentY += (nameLines.length * 4) + 2;
-    
-    // Price - prominent display
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(11);
-    pdf.setTextColor(0, 0, 0);
-    const priceText = `$${product.price.toFixed(2)}`;
-    pdf.text(priceText, x + padding, currentY);
-    
-    currentY += 5;
-    
-    // Optional: SKU or stock info
-    if (product.sku) {
-      pdf.setFontSize(8);
-      pdf.setFont('helvetica', 'italic');
-      pdf.setTextColor(100, 100, 100);
-      pdf.text(`SKU: ${product.sku}`, x + padding, currentY);
-      currentY += 4;
-    }
-    
-    if (product.stock !== undefined) {
+    // Product description (if available)
+    if (product.description && pdf.getTextWidth(product.description) < maxNameWidth * 2) {
       pdf.setFontSize(8);
       pdf.setFont('helvetica', 'normal');
-      const stockColor = product.stock <= (product.lowStockAlert || 5) ? [200, 0, 0] : [0, 100, 0];
-      pdf.setTextColor(stockColor[0], stockColor[1], stockColor[2]);
-      pdf.text(`Stock: ${product.stock}`, x + padding, currentY);
-      currentY += 4;
+      pdf.setTextColor(100, 100, 100);
+      
+      // Truncate long descriptions
+      let desc = product.description;
+      if (desc.length > 60) {
+        desc = desc.substring(0, 57) + '...';
+      }
+      
+      pdf.text(desc, detailsX, imageY + 15);
+      currentY += 5;
     }
     
-    // Add border around product box
-    pdf.setDrawColor(220, 220, 220);
-    pdf.rect(x, y, width, currentY - y + 2);
+    // Price - prominent display
+    const priceX = detailsX;
+    const priceY = imageY + imageSize - 10;
     
-    return currentY + 8;
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(12);
+    pdf.setTextColor(0, 100, 0); // Green for price
+    
+    const priceText = `$${product.price.toFixed(2)}`;
+    pdf.text(priceText, priceX, priceY);
+    
+    // Stock information (if available)
+    if (product.stock !== undefined) {
+      const stockX = priceX + pdf.getTextWidth(priceText) + 5;
+      
+      pdf.setFontSize(8);
+      pdf.setFont('helvetica', 'normal');
+      
+      if (product.stock <= (product.lowStockAlert || 5)) {
+        pdf.setTextColor(200, 0, 0); // Red for low stock
+        pdf.text(`Stock: ${product.stock} (Low)`, stockX, priceY);
+      } else if (product.stock > 0) {
+        pdf.setTextColor(0, 100, 0); // Green for in stock
+        pdf.text(`Stock: ${product.stock}`, stockX, priceY);
+      } else {
+        pdf.setTextColor(150, 150, 150); // Gray for out of stock
+        pdf.text('Out of Stock', stockX, priceY);
+      }
+    }
+    
+    // SKU (if available)
+    if (product.sku) {
+      pdf.setFontSize(7);
+      pdf.setFont('helvetica', 'italic');
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(`SKU: ${product.sku}`, detailsX, priceY + 5);
+    }
+    
+    return y + imageSize + 40; // Return next Y position
   };
 
-  // === Footer with contact and social ===
+  // === Footer ===
   const addFooter = (pageNumber: number, totalPages: number) => {
     const footerY = pageHeight - 15;
     
     // Decorative line
-    pdf.setDrawColor(0, 0, 0);
-    pdf.setLineWidth(0.2);
+    pdf.setDrawColor(200, 200, 200);
+    pdf.setLineWidth(0.3);
     pdf.line(margin, footerY, pageWidth - margin, footerY);
     
-    // Contact info
-    pdf.setFontSize(8);
+    // Page number
+    pdf.setFontSize(9);
     pdf.setFont('helvetica', 'normal');
     pdf.setTextColor(100, 100, 100);
-    
-    const contactDetails = [
-      businessInfo.address || '123 Business St',
-      businessInfo.city || 'City',
-      businessInfo.state || 'State',
-      businessInfo.zipCode || '12345'
-    ].filter(Boolean).join(', ');
-    
-    const contactInfo = [
-      businessInfo.phone || '+123-456-7890',
-      businessInfo.email || 'info@business.com',
-      businessInfo.website || 'www.business.com'
-    ].filter(Boolean).join(' • ');
-    
-    pdf.text(contactDetails, margin, footerY + 5);
-    pdf.text(contactInfo, pageWidth - margin, footerY + 5, { align: 'right' });
-    
-    // Page number
     pdf.text(`Page ${pageNumber} of ${totalPages}`, pageWidth / 2, footerY + 5, { align: 'center' });
     
+    // Contact info
+    const contactDetails = [];
+    if (businessInfo.phone) contactDetails.push(`Tel: ${businessInfo.phone}`);
+    if (businessInfo.email) contactDetails.push(`Email: ${businessInfo.email}`);
+    if (businessInfo.website) contactDetails.push(`Web: ${businessInfo.website}`);
+    
+    if (contactDetails.length > 0) {
+      pdf.setFontSize(8);
+      contactDetails.forEach((detail, index) => {
+        pdf.text(detail, margin, footerY + 5 + (index * 4));
+      });
+    }
+    
     // Copyright
-    pdf.setFontSize(7);
-    pdf.text(`© ${new Date().getFullYear()} ${businessInfo.businessName || 'Business'}. All rights reserved.`, 
-      pageWidth / 2, footerY + 10, { align: 'center' });
+    const year = new Date().getFullYear();
+    const businessName = businessInfo.businessName || 'Business';
+    pdf.text(`© ${year} ${businessName}. All rights reserved.`, pageWidth - margin, footerY + 5, { align: 'right' });
   };
 
   // === Start PDF generation ===
   addBackground();
   
-  let currentY = addHeader(margin);
+  let currentY = await addHeader(margin);
   let currentX = margin;
   let currentColumn = 1;
   let pageNumber = 1;
@@ -286,36 +374,47 @@ export const generateClassicDesignPDF = async (
     productsByCategory['Other Products'] = uncategorizedProducts.sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  // Calculate total pages
-  let totalProducts = 0;
-  Object.values(productsByCategory).forEach(prods => totalProducts += prods.length);
-  const estimatedItemsPerPage = Math.floor((pageHeight - currentY - 30) / 60) * 2;
-  const totalPages = Math.ceil(totalProducts / estimatedItemsPerPage) + 1; // +1 for cover
+  // Calculate total pages (approximate)
+  let totalItems = 0;
+  Object.values(productsByCategory).forEach(prods => totalItems += prods.length);
+  const itemsPerColumn = Math.floor((pageHeight - currentY - 30) / 60);
+  const totalPages = Math.ceil(totalItems / (itemsPerColumn * 2)) + 1;
 
   // Generate catalog content
   for (const [catName, categoryProducts] of Object.entries(productsByCategory)) {
     // Add category header
     if (currentY > pageHeight - 100) {
-      addFooter(pageNumber, totalPages);
-      addPageWithBackground();
-      pageNumber++;
-      currentY = margin + 30;
-      currentX = margin;
-      currentColumn = 1;
+      if (currentColumn === 1) {
+        // Move to second column
+        currentX = margin + colWidth + columnGap;
+        currentY = margin + 30;
+        currentColumn = 2;
+      } else {
+        // New page
+        addFooter(pageNumber, totalPages);
+        addPageWithBackground();
+        pageNumber++;
+        currentX = margin;
+        currentY = margin + 30;
+        currentColumn = 1;
+      }
     }
     
     currentY = addCategoryHeader(currentX, currentY, colWidth, catName);
     
     // Add products in this category
-    for (const product of categoryProducts) {
-      if (currentY > pageHeight - 100) {
+    for (let i = 0; i < categoryProducts.length; i++) {
+      const product = categoryProducts[i];
+      
+      // Check if we need to move to next column or page
+      if (currentY > pageHeight - 80) {
         if (currentColumn === 1) {
           // Move to second column
           currentX = margin + colWidth + columnGap;
           currentY = margin + 30;
           currentColumn = 2;
           
-          // Add category header for second column
+          // Add category header again for second column
           currentY = addCategoryHeader(currentX, currentY, colWidth, catName);
         } else {
           // New page
@@ -331,13 +430,11 @@ export const generateClassicDesignPDF = async (
         }
       }
       
-      currentY = await addProductItem(currentX, currentY, colWidth, product);
+      currentY = await addProductItem(currentX, currentY, colWidth, product, i);
     }
     
-    // Reset for next category
-    currentX = margin;
-    currentColumn = 1;
-    currentY += 10; // Extra space between categories
+    // Add spacing between categories
+    currentY += itemSpacing;
   }
 
   // Add final footer
