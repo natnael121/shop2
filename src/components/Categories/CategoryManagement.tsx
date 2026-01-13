@@ -5,20 +5,7 @@ import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, deleteDoc
 import { useAuth } from '../../hooks/useAuth';
 import { db } from '../../lib/firebase';
 import { QRCodeGenerator } from '../QRCodeGenerator';
-// Update CategoryManagement component props
-interface CategoryManagementProps {
-  categories: Category[];
-  loading: boolean;
-  selectedShopId?: string;
-}
 
-export default function CategoryManagement({ 
-  categories, 
-  loading, 
-  selectedShopId 
-}: CategoryManagementProps) {
-  // Your existing component code
-}
 interface Category {
   id: string;
   name: string;
@@ -322,7 +309,20 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({ selectedShopId 
     </div>
   );
 };
+// Update CategoryManagement component props
+interface CategoryManagementProps {
+  categories: Category[];
+  loading: boolean;
+  selectedShopId?: string;
+}
 
+export default function CategoryManagement({ 
+  categories, 
+  loading, 
+  selectedShopId 
+}: CategoryManagementProps) {
+  // Your existing component code
+}
 // Category Modal Component
 interface CategoryModalProps {
   category: Category | null;
