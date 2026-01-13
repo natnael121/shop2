@@ -5,6 +5,7 @@ import { useAuth } from './hooks/useAuth';
 import { useShops } from './hooks/useShops';
 import { useProducts } from './hooks/useProducts';
 import { useOrders } from './hooks/useOrders';
+import { useCategories } from './hooks/useCategories'; // Import your existing hook
 import AuthForm from './components/Auth/AuthForm';
 import CatalogPage from './pages/CatalogPage';
 import Sidebar from './components/Layout/Sidebar';
@@ -47,11 +48,12 @@ function DashboardApp() {
   const { user } = useAuth();
   const [activeSection, setActiveSection] = useState('dashboard');
   const [selectedShop, setSelectedShop] = useState<Shop | undefined>();
-  const [showPrintCatalog, setShowPrintCatalog] = useState(false); // State for showing print catalog
+  const [showPrintCatalog, setShowPrintCatalog] = useState(false);
 
   const { shops, loading: shopsLoading, createShop } = useShops(user?.uid);
   const { products, loading: productsLoading, createProduct, updateProduct, deleteProduct } = useProducts(selectedShop?.id);
   const { orders, loading: ordersLoading, updateOrderStatus } = useOrders(selectedShop?.id);
+  const { categories, loading: categoriesLoading } = useCategories(user?.uid, selectedShop?.id);
 
   // Auto-select first shop if none selected
   useEffect(() => {
@@ -80,7 +82,6 @@ function DashboardApp() {
 
   const handleSectionChange = (section: string) => {
     if (section === 'print') {
-      // Only show print catalog if a shop is selected
       if (selectedShop) {
         setShowPrintCatalog(true);
       } else {
@@ -160,8 +161,20 @@ function DashboardApp() {
         );
         
       case 'categories':
+        if (!selectedShop) {
+          return (
+            <div className="text-center py-12">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No Shop Selected</h3>
+              <p className="text-gray-500">Please select a shop to manage categories.</p>
+            </div>
+          );
+        }
         return (
-          <CategoryManagement selectedShopId={selectedShop?.id} />
+          <CategoryManagement 
+            categories={categories}
+            loading={categoriesLoading}
+            selectedShopId={selectedShop.id}
+          />
         );
 
       case 'banners':
@@ -266,6 +279,67 @@ function DashboardApp() {
                 </div>
               </div>
             )}
+
+            {/* Print Catalog section content when print is active but modal not shown */}
+            {activeSection === 'print' && !showPrintCatalog && selectedShop && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="max-w-3xl mx-auto">
+                  <div className="text-center mb-8">
+                    <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-12 h-12 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                      </svg>
+                    </div>
+                    <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                      Print Product Catalog
+                    </h2>
+                    <p className="text-gray-600">
+                      Generate a professional catalog to print and share with customers
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h3 className="font-semibold text-gray-900 mb-2">Catalog Summary</h3>
+                      <ul className="text-sm text-gray-600 space-y-1">
+                        <li>• {products.length} total products</li>
+                        <li>• {categories.length} categories</li>
+                        <li>• ${Math.min(...products.map(p => p.price)).toFixed(2)} - ${Math.max(...products.map(p => p.price)).toFixed(2)} price range</li>
+                        <li>• {products.filter(p => p.images && p.images.length > 0).length} products with images</li>
+                      </ul>
+                    </div>
+
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h3 className="font-semibold text-gray-900 mb-2">Design Options</h3>
+                      <ul className="text-sm text-gray-600 space-y-1">
+                        <li>• Modern & Contemporary</li>
+                        <li>• Classic & Traditional</li>
+                        <li>• Elegant & Premium</li>
+                        <li>• Minimal & Clean</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div className="text-center">
+                    <button
+                      onClick={() => setShowPrintCatalog(true)}
+                      disabled={products.length === 0}
+                      className="bg-gray-800 text-white px-8 py-3 rounded-lg hover:bg-gray-900 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed font-semibold inline-flex items-center space-x-2"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                      </svg>
+                      <span>Open Catalog Generator</span>
+                    </button>
+                    {products.length === 0 && (
+                      <p className="text-sm text-gray-500 mt-2">
+                        Add some products first to generate a catalog
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </main>
         </div>
       </div>
@@ -276,7 +350,7 @@ function DashboardApp() {
           userId={user.uid}
           businessInfo={businessInfo}
           products={products}
-          categories={[]} // You might need to fetch categories separately
+          categories={categories}
           onClose={handleClosePrintCatalog}
         />
       )}
