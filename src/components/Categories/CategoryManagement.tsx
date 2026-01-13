@@ -309,20 +309,7 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({ selectedShopId 
     </div>
   );
 };
-// Update CategoryManagement component props
-interface CategoryManagementProps {
-  categories: Category[];
-  loading: boolean;
-  selectedShopId?: string;
-}
-
-export default function CategoryManagement({ 
-  categories, 
-  loading, 
-  selectedShopId 
-}: CategoryManagementProps) {
-  // Your existing component code
-}
+ 
 // Category Modal Component
 interface CategoryModalProps {
   category: Category | null;
