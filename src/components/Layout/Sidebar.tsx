@@ -9,7 +9,8 @@ import {
   Store,
   MessageSquare,
   Tag,
-  Image
+  Image,
+  Printer
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -28,6 +29,7 @@ const menuItems = [
   { id: 'customers', label: 'Customers', icon: Users },
   { id: 'telegram', label: 'Telegram Setup', icon: MessageSquare },
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+  { id: 'print', label: 'Print Catalog', icon: Printer },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
