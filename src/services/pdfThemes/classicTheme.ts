@@ -428,7 +428,7 @@ export const generateClassicDesignPDF = async (
           // Add category header on new page
           currentY = addCategoryHeader(currentX, currentY, colWidth, catName);
         }
-      }
+      } 
       
       currentY = await addProductItem(currentX, currentY, colWidth, product, i);
     }
